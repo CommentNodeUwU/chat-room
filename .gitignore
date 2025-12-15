@@ -1,0 +1,8 @@
+/.vs
+/.vscode
+/node_modules
+/dist
+config.json
+desktop.ini
+.directory
+.DS_Store

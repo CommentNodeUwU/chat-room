@@ -1,0 +1,13 @@
+{
+    "extends": "./tsconfig",
+    "compilerOptions": {
+        "target": "es2017",
+        "module": "es2015",
+        "moduleResolution": "bundler"
+    },
+    "exclude": [
+        "node_modules",
+        "dist",
+        "src/server"
+    ]
+}
