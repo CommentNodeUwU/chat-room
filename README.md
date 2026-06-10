@@ -4,7 +4,7 @@ Create a `config.json` and set up the port to use
 
 ```json
 {
-    port: 3000
+    "port": 3000
 }
 ```
 
