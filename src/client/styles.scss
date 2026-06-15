@@ -126,7 +126,7 @@ button {
     }
 
     .nav-button {
-        display: flex;
+        display: none;
         align-items: center;
         flex-shrink: 0;
 
@@ -137,6 +137,10 @@ button {
         svg {
             width: 32px;
             height: 32px;
+        }
+
+        @media screen and (max-width: 576px) {
+            display: flex;
         }
     }
 
