@@ -110,6 +110,7 @@ button {
     background: var(--background-secondary);
 
     @media screen and (max-width: 576px) {
+        border: none;
         max-height: none;
     }
 }
