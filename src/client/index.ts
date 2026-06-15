@@ -339,6 +339,29 @@ chatInput.addEventListener('keydown', e => {
     }
 });
 
+chatInput.addEventListener('paste', function (event: ClipboardEvent) {
+    const clipboardData = event.clipboardData;
+    if (!clipboardData) return;
+
+    const items = clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+
+        if (item.type.indexOf('image') !== -1) {
+            event.preventDefault();
+
+            const file = item.getAsFile();
+            
+            if (file) {
+                file.arrayBuffer()
+                    .then(buffer => wsMessageImage(new Uint8Array(buffer)));
+            }
+            
+            break; 
+        }
+    }
+});
+
 sendButton.addEventListener('click', () => {
     sendText();
 });
