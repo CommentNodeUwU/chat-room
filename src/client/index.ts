@@ -47,18 +47,21 @@ const userInfoOkButton = element('user-info-ok');
 
 const imageViewDialog = element<HTMLDialogElement>('image-view-dialog');
 const imageViewImage = element<HTMLImageElement>('image-view-image');
-const imageViewCloseButton = element('image-view-close');
 
 const imagePasteDialog = element<HTMLDialogElement>('image-paste-dialog');
 const imagePastePreview = element<HTMLImageElement>('image-paste-preview');
 const imagePasteYesButton = element('image-paste-yes');
 const imagePasteNoButton = element('image-paste-no');
 
+const stickerDialog = element<HTMLDialogElement>('sticker-dialog');
+const stickerList = element<HTMLDivElement>('sticker-list');
+const stickerCloseButton = element('sticker-close');
+
 const userList = element('user-list');
 const chatList = element('chat-list');
 
 const chatInput = element<HTMLInputElement>('chat-input');
-// const emojiButton = element('emoji-button');
+const emojiButton = element('emoji-button');
 const imageButton = element('image-button');
 const imageInput = element<HTMLInputElement>('image-input');
 const sendButton = element('send-button');
@@ -414,10 +417,76 @@ imageButton.addEventListener('click', async () => {
     imageInput.click();
 });
 
+// Sticker picker
+let stickerPacks: Array<{ name: string; files: string[] }> | undefined = undefined;
+async function loadStickers(): Promise<Array<{ name: string; files: string[] }>> {
+    if (stickerPacks) return stickerPacks;
+    try {
+        const res = await fetch('/stickers.json');
+        if (!res.ok) return [];
+        const json = await res.json();
+        stickerPacks = Array.isArray(json) ? json : [];
+        return stickerPacks;
+    } catch (e) {
+        console.error('Failed to load stickers', e);
+        return [];
+    }
+}
+
+function openStickerDialog() {
+    loadStickers().then(packs => {
+        // clear
+        while (stickerList.firstChild) stickerList.removeChild(stickerList.firstChild);
+        for (const pack of packs) {
+            const packNode = document.createElement('div');
+            packNode.className = 'sticker-pack';
+
+            const header = document.createElement('div');
+            header.className = 'sticker-pack-title';
+            header.textContent = pack.name;
+            packNode.appendChild(header);
+
+            const packGrid = document.createElement('div');
+            packGrid.className = 'sticker-pack-grid';
+
+            for (const url of pack.files) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                const img = document.createElement('img');
+                img.src = url;
+                img.alt = pack.name;
+                btn.appendChild(img);
+                btn.addEventListener('click', async () => {
+                    try {
+                        const r = await fetch(url);
+                        const buf = await r.arrayBuffer();
+                        wsMessageImage(new Uint8Array(buf));
+                        stickerDialog.close();
+                    } catch (e) {
+                        console.error('Failed to send sticker', e);
+                    }
+                });
+                packGrid.appendChild(btn);
+            }
+
+            packNode.appendChild(packGrid);
+            stickerList.appendChild(packNode);
+        }
+        stickerDialog.showModal();
+    });
+}
+
+stickerCloseButton.addEventListener('click', () => stickerDialog.close());
+stickerDialog.addEventListener('click', () => stickerDialog.close());
+
+emojiButton.addEventListener('click', () => {
+    openStickerDialog();
+});
+
 function imageView(src: string) {
     imageViewImage.src = src;
     imageViewDialog.showModal();
-    imageViewCloseButton.addEventListener('click', () => {
+    imageViewDialog.addEventListener('click', () => {
         imageViewDialog.close();
     });
 }

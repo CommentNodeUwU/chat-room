@@ -1,6 +1,8 @@
 import { createServer, IncomingMessage } from 'node:http';
 import { URL } from 'node:url';
 import express from 'express';
+import fs from 'node:fs';
+import path from 'node:path';
 import proxy from 'express-http-proxy';
 import { WebSocketServer } from 'ws';
 import { BinaryReader } from '../shared/binaryReader.js';
@@ -15,6 +17,34 @@ const port = config.port;
 const production = process.env.NODE_ENV === 'production';
 
 const app = express();
+
+// Serve stickers folder and provide a JSON index (mounted before proxy/dev server)
+const stickersDir = path.join(process.cwd(), 'stickers');
+app.use('/stickers', express.static(stickersDir));
+
+app.get('/stickers.json', async (_req, res) => {
+    try {
+        const packs: Array<{ name: string; files: string[] }> = [];
+        if (!fs.existsSync(stickersDir)) {
+            return res.json(packs);
+        }
+        const entries = await fs.promises.readdir(stickersDir, { withFileTypes: true });
+        for (const entry of entries) {
+            if (!entry.isDirectory()) continue;
+            const packName = entry.name;
+            const packPath = path.join(stickersDir, packName);
+            const files = await fs.promises.readdir(packPath);
+            const images = files.filter(f => /\.(gif|png|webp|jpg|jpeg)$/i.test(f)).map(f => `/stickers/${encodeURIComponent(packName)}/${encodeURIComponent(f)}`);
+            if (images.length) {
+                packs.push({ name: packName, files: images });
+            }
+        }
+        res.json(packs);
+    } catch (e) {
+        console.error('Failed to read stickers', e);
+        res.status(500).json({ error: 'failed' });
+    }
+});
 const server = createServer(app);
 const wss = new WebSocketServer<typeof ExtWebSocket>({ noServer: true });
 

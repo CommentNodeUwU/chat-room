@@ -102,9 +102,7 @@
     </dialog>
 
     <dialog id="image-view-dialog" style="border: none; background-color: rgba(0, 0, 0, 0);">
-        <div id="image-view-close">
-            <img class="image-preview" id="image-view-image" src="" alt="Preview">
-        </div>
+        <img class="image-preview" id="image-view-image" src="" alt="Preview">
     </dialog>
 
     <dialog class="dialog-box" id="image-paste-dialog">
@@ -117,6 +115,15 @@
             <button id="image-paste-no">No</button>
         </div>
     </dialog>
+
+        <dialog class="dialog-box" id="sticker-dialog" style="width: 800px;">
+            <div class="dialog-content">
+                <div id="sticker-list" class="sticker-list"></div>
+            </div>
+            <div class="dialog-footer">
+                <button id="sticker-close">Close</button>
+            </div>
+        </dialog>
 </body>
 
 </html>
