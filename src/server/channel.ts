@@ -12,7 +12,8 @@ export class Channel {
     constructor(public readonly id: string) { }
     removeOldMessages() {
         const time = Date.now();
-        while (this.messages.length > 200 || (this.messages.length && this.messages[0].time + this.messages[0].ttl < time)) {
+
+        while (this.messages.length > 200) {
             const removed = this.messages.shift();
             if (removed) {
                 const writer = new BinaryWriter();
@@ -21,6 +22,20 @@ export class Channel {
                     .uint8(removed.type)
                     .uint32(removed.user.id)
                     .float64(removed.time);
+                this.broadcast(writer.getBuffer());
+            }
+        }
+
+        for (let index = this.messages.length - 1; index >= 0; index--) {
+            const message = this.messages[index];
+            if (message.time + message.ttl < time) {
+                this.messages.splice(index, 1);
+                const writer = new BinaryWriter();
+                writer
+                    .uint8(enums.SERVER_DELETE_MESSAGE)
+                    .uint8(message.type)
+                    .uint32(message.user.id)
+                    .float64(message.time);
                 this.broadcast(writer.getBuffer());
             }
         }
