@@ -45,6 +45,15 @@ const userInfoNameText = element('user-info-name');
 const userInfoAddrText = element('user-info-addr');
 const userInfoOkButton = element('user-info-ok');
 
+const imageViewDialog = element<HTMLDialogElement>('image-view-dialog');
+const imageViewImage = element<HTMLImageElement>('image-view-image');
+const imageViewCloseButton = element('image-view-close');
+
+const imagePasteDialog = element<HTMLDialogElement>('image-paste-dialog');
+const imagePastePreview = element<HTMLImageElement>('image-paste-preview');
+const imagePasteYesButton = element('image-paste-yes');
+const imagePasteNoButton = element('image-paste-no');
+
 const userList = element('user-list');
 const chatList = element('chat-list');
 
@@ -149,7 +158,7 @@ function readChannel(reader: BinaryReader) {
                 const name = reader.string();
                 const address = reader.string();
                 const image = reader.u8array();
-                messages.push(createChatMessageImage(userId, name, address, date, image));
+                messages.push(createChatMessageImage(userId, name, address, date, image, imageView));
                 break;
             }
         }
@@ -182,7 +191,7 @@ function readUserMessage(reader: BinaryReader) {
         }
         case enums.MESSAGE_IMAGE: {
             const image = reader.u8array();
-            const message = createChatMessageImage(userId, user?.name || DEFAULT_NAME, address, date, image);
+            const message = createChatMessageImage(userId, user?.name || DEFAULT_NAME, address, date, image, imageView);
             addMessage(message);
             break;
         }
@@ -371,8 +380,16 @@ chatInput.addEventListener('paste', function (event: ClipboardEvent) {
             const file = item.getAsFile();
             
             if (file) {
-                file.arrayBuffer()
-                    .then(buffer => wsMessageImage(new Uint8Array(buffer)));
+                imagePastePreview.src = URL.createObjectURL(file);
+                imagePasteDialog.showModal();
+                imagePasteYesButton.onclick = () => {
+                    imagePasteDialog.close();
+                    file.arrayBuffer()
+                        .then(buffer => wsMessageImage(new Uint8Array(buffer)));
+                };
+                imagePasteNoButton.onclick = () => {
+                    imagePasteDialog.close();
+                };
             }
             
             break; 
@@ -396,6 +413,14 @@ imageInput.addEventListener('change', () => {
 imageButton.addEventListener('click', async () => {
     imageInput.click();
 });
+
+function imageView(src: string) {
+    imageViewImage.src = src;
+    imageViewDialog.showModal();
+    imageViewCloseButton.addEventListener('click', () => {
+        imageViewDialog.close();
+    });
+}
 
 const initToken = localStorage.getItem('token');
 if (initToken) {

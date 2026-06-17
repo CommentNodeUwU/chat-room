@@ -63,16 +63,19 @@ export function createChatMessageText(userId: number, name: string, address: str
     return { type: 2, userId, time: date.getTime(), node, nameNode };
 }
 
-export function createChatMessageImage(userId: number, name: string, address: string, date: Date, image: Uint8Array<ArrayBuffer>): Message {
+export function createChatMessageImage(userId: number, name: string, address: string, date: Date, image: Uint8Array<ArrayBuffer>, onClick?: (src: string) => void): Message {
     const { node, nameNode, messageNode } = createChatMessageBase(name, address, date);
     const src = URL.createObjectURL(new Blob([image], { type: 'image/png' }));
-    const a = document.createElement('a');
-    a.href = src;
-    a.target = '_blank';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'chat-message-image-button';
+    if (onClick) {
+        button.addEventListener('click', () => onClick(src));
+    }
     const img = new Image();
     img.className = 'chat-message-image';
     img.src = src;
-    a.appendChild(img);
-    messageNode.appendChild(a);
+    button.appendChild(img);
+    messageNode.appendChild(button);
     return { type: 3, userId, time: date.getTime(), node, nameNode };
 }
