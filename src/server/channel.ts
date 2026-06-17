@@ -12,8 +12,17 @@ export class Channel {
     constructor(public readonly id: string) { }
     removeOldMessages() {
         const time = Date.now();
-        while (this.messages.length > 200 || this.messages.length && this.messages[0].time + this.messages[0].ttl < time) {
-            this.messages.shift();
+        while (this.messages.length > 200 || (this.messages.length && this.messages[0].time + this.messages[0].ttl < time)) {
+            const removed = this.messages.shift();
+            if (removed) {
+                const writer = new BinaryWriter();
+                writer
+                    .uint8(enums.SERVER_DELETE_MESSAGE)
+                    .uint8(removed.type)
+                    .uint32(removed.user.id)
+                    .float64(removed.time);
+                this.broadcast(writer.getBuffer());
+            }
         }
     }
     private broadcast(data: Uint8Array) {
@@ -32,7 +41,8 @@ export class Channel {
         writer.array(this.messages, message => {
             writer
                 .uint8(message.type)
-                .uint32(message.user.id);
+                .uint32(message.user.id)
+                .float64(message.time);
             switch (message.type) {
                 case enums.MESSAGE_SYSTEM:
                     writer
@@ -46,14 +56,12 @@ export class Channel {
                     break;
                 case enums.MESSAGE_TEXT:
                     writer
-                        .float64(message.time)
                         .string(message.user.name)
                         .string(message.address)
                         .string(message.text);
                     break;
                 case enums.MESSAGE_IMAGE:
                     writer
-                        .float64(message.time)
                         .string(message.user.name)
                         .string(message.address)
                         .u8array(message.image);
@@ -88,6 +96,7 @@ export class Channel {
         writer
             .uint8(enums.SERVER_USER_JOIN)
             .uint32(user.id)
+            .float64(time)
             .string(user.name)
             .string(user.address);
         this.broadcast(writer.getBuffer());
@@ -124,7 +133,8 @@ export class Channel {
         const writer = new BinaryWriter();
         writer
             .uint8(enums.SERVER_USER_LEFT)
-            .uint32(user.id);
+            .uint32(user.id)
+            .float64(time);
         this.broadcast(writer.getBuffer());
     }
     clientNameChange(client: ExtWebSocket, oldName: string, newName: string) {
@@ -145,6 +155,7 @@ export class Channel {
         writer
             .uint8(enums.SERVER_USER_NAME)
             .uint32(user.id)
+            .float64(time)
             .string(oldName)
             .string(newName);
         this.broadcast(writer.getBuffer());
@@ -214,4 +225,4 @@ setInterval(() => {
     for (const channel of channels.values()) {
         channel.removeOldMessages();
     }
-}, 60000);
+}, 1000);

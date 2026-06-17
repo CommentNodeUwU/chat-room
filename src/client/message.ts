@@ -1,4 +1,5 @@
 import { DEFAULT_NAME } from "./constants.js";
+import * as enums from '../shared/wsEnums.js';
 import type { Message } from "./interfaces.js";
 
 function text(data = '') {
@@ -22,25 +23,25 @@ function formatTime(date: Date) {
     return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${minutes < 10 ? '0' + minutes : minutes}`;
 }
 
-export function createUserJoinMessage(userId: number, name: string): Message {
+export function createUserJoinMessage(userId: number, name: string, time?: number): Message {
     const nameNode = text(name || DEFAULT_NAME);
     const node = div('chat-system');
     appendNodes(node, text('→ '), nameNode, text(' joined the channel'));
-    return { userId, node, nameNode }
+    return { type: enums.MESSAGE_SYSTEM, userId, time, node, nameNode }
 }
 
-export function createUserLeftMessage(userId: number, name: string): Message {
+export function createUserLeftMessage(userId: number, name: string, time?: number): Message {
     const nameNode = text(name || DEFAULT_NAME);
     const node = div('chat-system');
     appendNodes(node, text('← '), nameNode, text(' left the channel'));
-    return { userId, node, nameNode }
+    return { type: enums.MESSAGE_SYSTEM, userId, time, node, nameNode }
 }
 
-export function createUserRenameMessage(userId: number, oldName: string, newName: string): Message {
+export function createUserRenameMessage(userId: number, oldName: string, newName: string, time?: number): Message {
     const nameNode = text();
     const node = div('chat-system');
     node.textContent = `~ ${oldName || DEFAULT_NAME} changed name to ${newName || DEFAULT_NAME}`;
-    return { userId, node, nameNode }
+    return { type: enums.MESSAGE_SYSTEM_NAME_CHANGE, userId, time, node, nameNode }
 }
 
 function createChatMessageBase(name: string, address: string, date: Date) {
@@ -59,7 +60,7 @@ function createChatMessageBase(name: string, address: string, date: Date) {
 export function createChatMessageText(userId: number, name: string, address: string, date: Date, text: string): Message {
     const { node, nameNode, messageNode } = createChatMessageBase(name, address, date);
     messageNode.textContent = text;
-    return { userId, node, nameNode };
+    return { type: 2, userId, time: date.getTime(), node, nameNode };
 }
 
 export function createChatMessageImage(userId: number, name: string, address: string, date: Date, image: Uint8Array<ArrayBuffer>): Message {
@@ -73,5 +74,5 @@ export function createChatMessageImage(userId: number, name: string, address: st
     img.src = src;
     a.appendChild(img);
     messageNode.appendChild(a);
-    return { userId, node, nameNode };
+    return { type: 3, userId, time: date.getTime(), node, nameNode };
 }

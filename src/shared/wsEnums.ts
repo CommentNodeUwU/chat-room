@@ -10,6 +10,7 @@ export const SERVER_USER_JOIN = 3;
 export const SERVER_USER_LEFT = 4;
 export const SERVER_USER_NAME = 5;
 export const SERVER_USER_MESSAGE = 6;
+export const SERVER_DELETE_MESSAGE = 7;
 
 export const MESSAGE_SYSTEM = 0;
 export const MESSAGE_SYSTEM_NAME_CHANGE = 1;

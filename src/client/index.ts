@@ -92,11 +92,11 @@ function createUserItem(id: number, name: string, address: string): User {
     return user;
 }
 
-function createSystemMessageWithName(event: number, userId: number, name: string): Message {
+function createSystemMessageWithName(event: number, userId: number, name: string, time: number): Message {
     if (event === enums.SERVER_USER_JOIN) {
-        return createUserJoinMessage(userId, name);
+        return createUserJoinMessage(userId, name, time);
     } else {
-        return createUserLeftMessage(userId, name);
+        return createUserLeftMessage(userId, name, time);
     }
 }
 
@@ -122,21 +122,22 @@ function readChannel(reader: BinaryReader) {
     reader.array(reader => {
         const type = reader.uint8();
         const userId = reader.uint32();
+        const time = reader.float64();
         switch (type) {
             case enums.MESSAGE_SYSTEM: {
                 const event = reader.uint8();
                 const name = reader.string();
-                messages.push(createSystemMessageWithName(event, userId, name));
+                messages.push(createSystemMessageWithName(event, userId, name, time));
                 break;
             }
             case enums.MESSAGE_SYSTEM_NAME_CHANGE: {
                 const oldName = reader.string();
                 const newName = reader.string();
-                messages.push(createUserRenameMessage(userId, oldName, newName));
+                messages.push(createUserRenameMessage(userId, oldName, newName, time));
                 break;
             }
             case enums.MESSAGE_TEXT: {
-                const date = reader.date();
+                const date = new Date(time);
                 const name = reader.string();
                 const address = reader.string();
                 const text = reader.string();
@@ -144,7 +145,7 @@ function readChannel(reader: BinaryReader) {
                 break;
             }
             case enums.MESSAGE_IMAGE: {
-                const date = reader.date();
+                const date = new Date(time);
                 const name = reader.string();
                 const address = reader.string();
                 const image = reader.u8array();
@@ -210,18 +211,20 @@ function handleServerMessage(e: MessageEvent<ArrayBuffer | string>) {
                 break;
             case enums.SERVER_USER_JOIN: {
                 const id = reader.uint32();
+                const time = reader.float64();
                 const name = reader.string();
                 const address = reader.string();
                 const user = createUserItem(id, name, address);
                 users.push(user);
                 userById.set(user.id, user);
                 userList.appendChild(user.node);
-                const message = createUserJoinMessage(id, name);
+                const message = createUserJoinMessage(id, name, time);
                 addMessage(message);
                 break;
             }
             case enums.SERVER_USER_LEFT: {
                 const id = reader.uint32();
+                const time = reader.float64();
                 const user = userById.get(id);
                 if (user) {
                     const userIndex = users.indexOf(user);
@@ -229,7 +232,7 @@ function handleServerMessage(e: MessageEvent<ArrayBuffer | string>) {
                         users.splice(userIndex, 1);
                     }
                     userList.removeChild(user.node);
-                    const message = createUserLeftMessage(id, user.name);
+                    const message = createUserLeftMessage(id, user.name, time);
                     addMessage(message);
                 }
                 userById.delete(id);
@@ -237,6 +240,7 @@ function handleServerMessage(e: MessageEvent<ArrayBuffer | string>) {
             }
             case enums.SERVER_USER_NAME: {
                 const id = reader.uint32();
+                const time = reader.float64();
                 const oldName = reader.string();
                 const newName = reader.string();
                 const user = userById.get(id);
@@ -253,13 +257,26 @@ function handleServerMessage(e: MessageEvent<ArrayBuffer | string>) {
                     myName = newName;
                     updateUserName();
                 }
-                const message = createUserRenameMessage(id, oldName, newName);
+                const message = createUserRenameMessage(id, oldName, newName, time);
                 addMessage(message);
                 break;
             }
             case enums.SERVER_USER_MESSAGE:
                 readUserMessage(reader);
                 break;
+            case enums.SERVER_DELETE_MESSAGE: {
+                const removedType = reader.uint8();
+                const removedUserId = reader.uint32();
+                const removedTime = reader.float64();
+                const msgIndex = messages.findIndex(msg => msg.type === removedType && msg.userId === removedUserId && msg.time === removedTime);
+                if (msgIndex !== -1) {
+                    const [msg] = messages.splice(msgIndex, 1);
+                    if (msg.node.parentNode) {
+                        msg.node.parentNode.removeChild(msg.node);
+                    }
+                }
+                break;
+            }
         }
     }
 }

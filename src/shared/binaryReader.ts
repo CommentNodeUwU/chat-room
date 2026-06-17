@@ -4,7 +4,7 @@ export class BinaryReader {
     offset = 0;
     private readonly view: DataView;
     constructor(public readonly data: Uint8Array) {
-        this.view = new DataView(data.buffer);
+        this.view = new DataView(data.buffer, data.byteOffset, data.byteLength);
     }
     int8() {
         const value = this.view.getInt8(this.offset);

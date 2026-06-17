@@ -7,6 +7,8 @@ export interface User {
 
 export interface Message {
     userId: number;
+    type?: number;
+    time?: number;
     nameNode: Node;
     node: Node;
 }
