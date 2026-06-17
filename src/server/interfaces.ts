@@ -7,33 +7,37 @@ export declare class ExtWebSocket extends WebSocket {
     user: User;
 }
 
-export interface MessageSystem {
+export interface MessageBase {
+    type: number;
+    time: number;
+    ttl: number;
+}
+
+export interface MessageSystem extends MessageBase {
     type: typeof enums.MESSAGE_SYSTEM;
     user: User;
     event: number;
 }
 
-export interface MessageSystemNameChange {
+export interface MessageSystemNameChange extends MessageBase {
     type: typeof enums.MESSAGE_SYSTEM_NAME_CHANGE;
     user: User;
     oldName: string;
     newName: string;
 }
 
-export interface MessageText {
+export interface MessageText extends MessageBase {
     type: typeof enums.MESSAGE_TEXT;
     user: User;
     address: string;
     text: string;
-    date: Date;
 }
 
-export interface MessageImage {
+export interface MessageImage extends MessageBase {
     type: typeof enums.MESSAGE_IMAGE;
     user: User;
     address: string;
     image: Uint8Array;
-    date: Date;
 }
 
 export type Message = MessageSystem | MessageSystemNameChange | MessageText | MessageImage;

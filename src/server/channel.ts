@@ -3,13 +3,16 @@ import * as enums from '../shared/wsEnums.js';
 import type { ExtWebSocket, Message } from "./interfaces.js";
 import type { User } from './user.js';
 
+const DEFAULT_TTL = 86400000; // 24 hours
+
 export class Channel {
     readonly clients: ExtWebSocket[] = [];
     readonly users: User[] = [];
     readonly messages: Message[] = [];
     constructor(public readonly id: string) { }
-    private removeOldMessages() {
-        while (this.messages.length > 200) {
+    removeOldMessages() {
+        const time = Date.now();
+        while (this.messages.length > 200 || this.messages.length && this.messages[0].time + this.messages[0].ttl < time) {
             this.messages.shift();
         }
     }
@@ -32,7 +35,7 @@ export class Channel {
                 .uint32(message.user.id);
             switch (message.type) {
                 case enums.MESSAGE_SYSTEM:
-                    writer 
+                    writer
                         .uint8(message.event)
                         .string(message.user.name);
                     break;
@@ -43,14 +46,14 @@ export class Channel {
                     break;
                 case enums.MESSAGE_TEXT:
                     writer
-                        .date(message.date)
+                        .float64(message.time)
                         .string(message.user.name)
                         .string(message.address)
                         .string(message.text);
                     break;
                 case enums.MESSAGE_IMAGE:
                     writer
-                        .date(message.date)
+                        .float64(message.time)
                         .string(message.user.name)
                         .string(message.address)
                         .u8array(message.image);
@@ -64,6 +67,7 @@ export class Channel {
         }
 
         const user = client.user;
+        const time = Date.now();
         this.clients.push(client);
 
         if (this.users.includes(user)) {
@@ -75,6 +79,8 @@ export class Channel {
             type: enums.MESSAGE_SYSTEM,
             event: enums.SERVER_USER_JOIN,
             user,
+            time,
+            ttl: DEFAULT_TTL,
         });
         this.removeOldMessages();
 
@@ -95,6 +101,7 @@ export class Channel {
         this.clients.splice(clientIndex, 1);
 
         const user = client.user;
+        const time = Date.now();
         if (this.clients.some(c => c.user === user)) {
             return;
         }
@@ -109,6 +116,8 @@ export class Channel {
             type: enums.MESSAGE_SYSTEM,
             event: enums.SERVER_USER_LEFT,
             user,
+            time,
+            ttl: DEFAULT_TTL,
         });
         this.removeOldMessages();
 
@@ -120,12 +129,15 @@ export class Channel {
     }
     clientNameChange(client: ExtWebSocket, oldName: string, newName: string) {
         const user = client.user;
+        const time = Date.now();
 
         this.messages.push({
             type: enums.MESSAGE_SYSTEM_NAME_CHANGE,
             user,
             oldName,
             newName,
+            time,
+            ttl: DEFAULT_TTL,
         });
         this.removeOldMessages();
 
@@ -139,14 +151,15 @@ export class Channel {
     }
     clientMessageText(client: ExtWebSocket, text: string) {
         const user = client.user;
-        const date = new Date();
+        const time = Date.now();
 
         this.messages.push({
             type: enums.MESSAGE_TEXT,
             user,
             address: user.address,
             text,
-            date,
+            time,
+            ttl: DEFAULT_TTL,
         });
         this.removeOldMessages();
 
@@ -156,20 +169,21 @@ export class Channel {
             .uint8(enums.MESSAGE_TEXT)
             .uint32(user.id)
             .string(user.address)
-            .date(date)
+            .float64(time)
             .string(text);
         this.broadcast(writer.getBuffer());
     }
     clientMessageImage(client: ExtWebSocket, image: Uint8Array) {
         const user = client.user;
-        const date = new Date();
+        const time = Date.now();
 
         this.messages.push({
             type: enums.MESSAGE_IMAGE,
             user,
             address: user.address,
             image,
-            date,
+            time,
+            ttl: DEFAULT_TTL,
         });
         this.removeOldMessages();
 
@@ -179,7 +193,7 @@ export class Channel {
             .uint8(enums.MESSAGE_IMAGE)
             .uint32(user.id)
             .string(user.address)
-            .date(date)
+            .float64(time)
             .u8array(image);
         this.broadcast(writer.getBuffer());
     }
@@ -195,3 +209,9 @@ export function findOrCreateChannel(id: string) {
     }
     return channel;
 }
+
+setInterval(() => {
+    for (const channel of channels.values()) {
+        channel.removeOldMessages();
+    }
+}, 60000);
