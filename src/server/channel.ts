@@ -80,7 +80,7 @@ export class Channel {
             event: enums.SERVER_USER_JOIN,
             user,
             time,
-            ttl: DEFAULT_TTL,
+            ttl: 10000,
         });
         this.removeOldMessages();
 
@@ -117,7 +117,7 @@ export class Channel {
             event: enums.SERVER_USER_LEFT,
             user,
             time,
-            ttl: DEFAULT_TTL,
+            ttl: 10000,
         });
         this.removeOldMessages();
 
