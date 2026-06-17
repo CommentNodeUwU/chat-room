@@ -335,6 +335,7 @@ function sendText() {
 
 chatInput.addEventListener('keydown', e => {
     if (e.keyCode === 13) { // Enter
+        e.preventDefault();
         sendText();
     }
 });

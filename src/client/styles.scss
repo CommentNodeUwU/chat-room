@@ -188,6 +188,7 @@ button {
 
 .content-right {
     flex-grow: 1;
+    width: 0;
 }
 
 .user-list, .chat-log {
@@ -237,10 +238,12 @@ button {
 
     .chat-message-message {
         font-family: sans-serif;
+        overflow-wrap: break-word;
     }
 
     .chat-message-image {
         display: block;
+        max-height: 400px;
         max-width: 100%;
     }
 }
@@ -256,6 +259,10 @@ button {
         font-family: sans-serif;
         width: 100%;
         padding-left: 0.5rem;
+        padding-top: 0.44rem;
+        line-height: 1.5rem;
+        resize: none;
+        scrollbar-width: none
     }
 
     .chat-button {

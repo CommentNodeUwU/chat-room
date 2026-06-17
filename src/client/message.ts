@@ -19,7 +19,7 @@ function appendNodes(parent: Node, ...nodes: Node[]) {
 
 function formatTime(date: Date) {
     const minutes = date.getMinutes();
-    return `${date.getMonth()}/${date.getDate()} ${date.getHours()}:${minutes < 10 ? '0' + minutes : minutes}`;
+    return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${minutes < 10 ? '0' + minutes : minutes}`;
 }
 
 export function createUserJoinMessage(userId: number, name: string): Message {
