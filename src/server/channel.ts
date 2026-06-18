@@ -97,6 +97,14 @@ export class Channel {
                         .string((message as any).mime)
                         .string((message as any).url);
                     break;
+                case enums.MESSAGE_AUDIO:
+                    writer
+                        .string(message.user.name)
+                        .string(message.address)
+                        .string((message as any).filename)
+                        .string((message as any).mime)
+                        .string((message as any).url);
+                    break;
             }
         });
     }
@@ -289,6 +297,35 @@ export class Channel {
         writer
             .uint8(enums.SERVER_USER_MESSAGE)
             .uint8(enums.MESSAGE_VIDEO)
+            .uint32(user.id)
+            .string(user.address)
+            .float64(time)
+            .string(filename)
+            .string(mime)
+            .string(url);
+        this.broadcast(writer.getBuffer());
+    }
+
+    clientMessageAudio(client: ExtWebSocket, filename: string, mime: string, url: string) {
+        const user = client.user;
+        const time = Date.now();
+
+        this.messages.push({
+            type: enums.MESSAGE_AUDIO,
+            user,
+            address: user.address,
+            filename,
+            mime,
+            url,
+            time,
+            ttl: DEFAULT_TTL,
+        } as any);
+        this.removeOldMessages();
+
+        const writer = new BinaryWriter();
+        writer
+            .uint8(enums.SERVER_USER_MESSAGE)
+            .uint8(enums.MESSAGE_AUDIO)
             .uint32(user.id)
             .string(user.address)
             .float64(time)

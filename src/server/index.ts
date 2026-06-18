@@ -143,6 +143,19 @@ async function handleChatMessage(client: ExtWebSocket, reader: BinaryReader) {
             user.channel.clientMessageVideo(client, filename, mime, url);
             break;
         }
+        case enums.MESSAGE_AUDIO: {
+            const filename = reader.string();
+            const mime = reader.string();
+            const data = reader.u8array();
+            const maxBytes = 512 * 1024 * 1024; // 512MB
+            if (data.length > maxBytes) {
+                console.warn(`Rejected audio from user ${user.id}: ${filename} (${data.length} bytes) exceeds limit`);
+                break;
+            }
+            const url = await saveUpload(filename, data, mime);
+            user.channel.clientMessageAudio(client, filename, mime, url);
+            break;
+        }
         default:
             throw new Error(`Unknown message type ${type}`);
     }

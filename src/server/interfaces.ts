@@ -58,4 +58,13 @@ export interface MessageVideo extends MessageBase {
     url: string;
 }
 
-export type Message = MessageSystem | MessageSystemNameChange | MessageText | MessageImage | MessageFile | MessageVideo;
+export interface MessageAudio extends MessageBase {
+    type: typeof enums.MESSAGE_AUDIO;
+    user: User;
+    address: string;
+    filename: string;
+    mime: string;
+    url: string;
+}
+
+export type Message = MessageSystem | MessageSystemNameChange | MessageText | MessageImage | MessageFile | MessageVideo | MessageAudio;

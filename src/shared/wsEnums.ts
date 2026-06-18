@@ -18,3 +18,4 @@ export const MESSAGE_TEXT = 2;
 export const MESSAGE_IMAGE = 3;
 export const MESSAGE_FILE = 4;
 export const MESSAGE_VIDEO = 5;
+export const MESSAGE_AUDIO = 6;

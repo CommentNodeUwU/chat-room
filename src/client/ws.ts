@@ -91,6 +91,20 @@ export function wsMessageVideo(filename: string, mime: string, data: Uint8Array)
     ws!.send(writer.getBuffer());
 }
 
+export function wsMessageAudio(filename: string, mime: string, data: Uint8Array) {
+    if (!isWsOpen()) {
+        return;
+    }
+    const writer = new BinaryWriter();
+    writer
+        .uint8(enums.CLIENT_MESSAGE)
+        .uint8(enums.MESSAGE_AUDIO)
+        .string(filename)
+        .string(mime)
+        .u8array(data);
+    ws!.send(writer.getBuffer());
+}
+
 export function wsSetName(name: string) {
     if (!isWsOpen()) {
         return;

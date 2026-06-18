@@ -4,10 +4,10 @@ import { DEFAULT_NAME } from './constants.js';
 import { MAX_FILE_BYTES } from './constants.js';
 import type { Message, User } from './interfaces.js';
 import {
-    createChatMessageImage, createChatMessageText, createUserJoinMessage, createUserLeftMessage, createUserRenameMessage, createChatMessageFile, createChatMessageVideo
+    createChatMessageImage, createChatMessageText, createUserJoinMessage, createUserLeftMessage, createUserRenameMessage, createChatMessageFile, createChatMessageVideo, createChatMessageAudio
 } from './message.js';
 import './styles.scss';
-import { closeWs, createWs, isWsCreated, wsMessageImage, wsMessageText, wsMessageFile, wsMessageVideo, wsSetChannel, wsSetName } from './ws.js';
+import { closeWs, createWs, isWsCreated, wsMessageImage, wsMessageText, wsMessageFile, wsMessageVideo, wsMessageAudio, wsSetChannel, wsSetName } from './ws.js';
 
 let myId = -1;
 let myName = '';
@@ -198,6 +198,16 @@ function readChannel(reader: BinaryReader) {
                 messages.push(createChatMessageVideo(userId, name, address, date, filename, url));
                 break;
             }
+            case enums.MESSAGE_AUDIO: {
+                const date = new Date(time);
+                const name = reader.string();
+                const address = reader.string();
+                const filename = reader.string();
+                reader.string();
+                const url = reader.string();
+                messages.push(createChatMessageAudio(userId, name, address, date, filename, url));
+                break;
+            }
         }
     });
 
@@ -245,6 +255,14 @@ function readUserMessage(reader: BinaryReader) {
             reader.string();
             const url = reader.string();
             const message = createChatMessageVideo(userId, user?.name || DEFAULT_NAME, address, date, filename, url);
+            addMessage(message);
+            break;
+        }
+        case enums.MESSAGE_AUDIO: {
+            const filename = reader.string();
+            reader.string();
+            const url = reader.string();
+            const message = createChatMessageAudio(userId, user?.name || DEFAULT_NAME, address, date, filename, url);
             addMessage(message);
             break;
         }
@@ -446,7 +464,8 @@ chatInput.addEventListener('paste', function (event: ClipboardEvent) {
 
         const isImage = file.type && file.type.indexOf('image') !== -1;
         const isVideo = file.type && file.type.indexOf('video') !== -1;
-        imagePasteTitle.textContent = isImage ? 'Do you want to send the image?' : isVideo ? 'Do you want to send the video?' : 'Do you want to send the file?';
+        const isAudio = file.type && file.type.indexOf('audio') !== -1;
+        imagePasteTitle.textContent = isImage ? 'Do you want to send the image?' : isVideo ? 'Do you want to send the video?' : isAudio ? 'Do you want to send the audio?' : 'Do you want to send the file?';
         imagePasteInfo.textContent = isImage ? '' : `${file.name} (${Math.round(file.size / 1024)} KB)`;
         imagePastePreview.src = isImage ? URL.createObjectURL(file) : '';
         imagePastePreview.style.display = isImage ? '' : 'none';
@@ -465,6 +484,8 @@ chatInput.addEventListener('paste', function (event: ClipboardEvent) {
                     wsMessageImage(data);
                 } else if (isVideo) {
                     wsMessageVideo(file.name, file.type || 'video/mp4', data);
+                } else if (isAudio) {
+                    wsMessageAudio(file.name, file.type || 'audio/mpeg', data);
                 } else {
                     wsMessageFile(file.name, file.type || 'application/octet-stream', data);
                 }
@@ -496,6 +517,8 @@ fileInput.addEventListener('change', () => {
                     wsMessageImage(data);
                 } else if (file.type && file.type.indexOf('video') !== -1) {
                     wsMessageVideo(file.name, file.type, data);
+                } else if (file.type && file.type.indexOf('audio') !== -1) {
+                    wsMessageAudio(file.name, file.type, data);
                 } else {
                     wsMessageFile(file.name, file.type || 'application/octet-stream', data);
                 }

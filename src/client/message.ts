@@ -96,6 +96,23 @@ export function createChatMessageVideo(userId: number, name: string, address: st
     return { type: enums.MESSAGE_VIDEO, userId, time: date.getTime(), node, nameNode } as Message;
 }
 
+export function createChatMessageAudio(userId: number, name: string, address: string, date: Date, filename: string, url: string): Message {
+    const { node, nameNode, messageNode } = createChatMessageBase(name, address, date);
+    const audio = document.createElement('audio');
+    audio.className = 'chat-message-audio';
+    audio.src = url;
+    audio.controls = true;
+    audio.preload = 'none';
+    audio.style.maxWidth = '100%';
+    audio.style.display = 'block';
+    messageNode.appendChild(audio);
+    const caption = document.createElement('div');
+    caption.className = 'chat-message-audio-filename';
+    caption.textContent = filename;
+    messageNode.appendChild(caption);
+    return { type: enums.MESSAGE_AUDIO, userId, time: date.getTime(), node, nameNode } as Message;
+}
+
 export function createChatMessageFile(userId: number, name: string, address: string, date: Date, filename: string, url: string): Message {
     const { node, nameNode, messageNode } = createChatMessageBase(name, address, date);
     const a = document.createElement('a');
