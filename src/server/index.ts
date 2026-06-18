@@ -57,7 +57,7 @@ app.use('/uploads', express.static(uploadsDir));
 app.post('/upload', async (req, res) => {
     const filenameHeader = req.headers['x-upload-filename'];
     const mimeHeader = req.headers['x-upload-mime'];
-    const filename = typeof filenameHeader === 'string' ? filenameHeader : 'upload';
+    const filename = typeof filenameHeader === 'string' ? decodeURIComponent(filenameHeader) : 'upload';
     const mime = typeof mimeHeader === 'string' ? mimeHeader : 'application/octet-stream';
     const maxBytes = config.maxFileBytes;
     const tempPath = path.join(uploadsDir, `${crypto.randomBytes(16).toString('hex')}.tmp`);

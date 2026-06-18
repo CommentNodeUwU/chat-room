@@ -105,7 +105,7 @@ function uploadFile(file: File, progressCallback: (percent: number) => void): Pr
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', '/upload');
-        xhr.setRequestHeader('X-Upload-Filename', file.name);
+        xhr.setRequestHeader('X-Upload-Filename', encodeURIComponent(file.name));
         xhr.setRequestHeader('X-Upload-Mime', file.type || 'application/octet-stream');
 
         xhr.upload.onprogress = event => {
