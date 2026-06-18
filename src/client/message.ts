@@ -86,8 +86,6 @@ export function createChatMessageVideo(userId: number, name: string, address: st
     video.src = url;
     video.controls = true;
     video.preload = 'metadata';
-    video.style.maxWidth = '100%';
-    video.style.height = 'auto';
     messageNode.appendChild(video);
     const caption = document.createElement('div');
     caption.className = 'chat-message-video-filename';
@@ -103,8 +101,6 @@ export function createChatMessageAudio(userId: number, name: string, address: st
     audio.src = url;
     audio.controls = true;
     audio.preload = 'none';
-    audio.style.maxWidth = '100%';
-    audio.style.display = 'block';
     messageNode.appendChild(audio);
     const caption = document.createElement('div');
     caption.className = 'chat-message-audio-filename';

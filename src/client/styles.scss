@@ -250,10 +250,17 @@ button {
         display: inline-block;
     }
 
-    .chat-message-image {
+    .chat-message-image,
+    .chat-message-video,
+    .chat-message-audio {
         display: block;
         max-height: 200px;
         max-width: 100%;
+    }
+
+    .chat-message-video-filename,
+    .chat-message-audio-filename {
+        margin-top: 0.25rem;
     }
 }
 
