@@ -63,6 +63,18 @@ export function wsMessageImage(image: Uint8Array) {
     ws!.send(writer.getBuffer());
 }
 
+export function wsMessageImageUrl(url: string) {
+    if (!isWsOpen()) {
+        return;
+    }
+    const writer = new BinaryWriter();
+    writer
+        .uint8(enums.CLIENT_MESSAGE)
+        .uint8(enums.MESSAGE_IMAGE_URL)
+        .string(url);
+    ws!.send(writer.getBuffer());
+}
+
 export function wsMessageFile(filename: string, mime: string, data: Uint8Array) {
     if (!isWsOpen()) {
         return;

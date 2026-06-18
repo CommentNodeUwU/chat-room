@@ -7,7 +7,7 @@ import {
     createChatMessageImage, createChatMessageText, createUserJoinMessage, createUserLeftMessage, createUserRenameMessage, createChatMessageFile, createChatMessageVideo, createChatMessageAudio
 } from './message.js';
 import './styles.scss';
-import { closeWs, createWs, isWsCreated, wsMessageImage, wsMessageText, wsMessageFile, wsMessageVideo, wsMessageAudio, wsSetChannel, wsSetName } from './ws.js';
+import { closeWs, createWs, isWsCreated, wsMessageImage, wsMessageImageUrl, wsMessageText, wsMessageFile, wsMessageVideo, wsMessageAudio, wsSetChannel, wsSetName } from './ws.js';
 
 let myId = -1;
 let myName = '';
@@ -571,15 +571,9 @@ function openStickerDialog() {
                 img.src = url;
                 img.alt = pack.name;
                 btn.appendChild(img);
-                btn.addEventListener('click', async () => {
-                    try {
-                        const r = await fetch(url);
-                        const buf = await r.arrayBuffer();
-                        wsMessageImage(new Uint8Array(buf));
-                        stickerDialog.close();
-                    } catch (e) {
-                        console.error('Failed to send sticker', e);
-                    }
+                btn.addEventListener('click', () => {
+                    wsMessageImageUrl(url);
+                    stickerDialog.close();
                 });
                 packGrid.appendChild(btn);
             }

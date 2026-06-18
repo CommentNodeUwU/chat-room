@@ -38,6 +38,8 @@ export interface MessageImage extends MessageBase {
     user: User;
     address: string;
     url: string;
+    filePath?: string;
+    fileHash?: string;
 }
 
 export interface MessageFile extends MessageBase {
@@ -47,6 +49,8 @@ export interface MessageFile extends MessageBase {
     filename: string;
     mime: string;
     url: string;
+    filePath?: string;
+    fileHash?: string;
 }
 
 export interface MessageVideo extends MessageBase {
@@ -56,6 +60,8 @@ export interface MessageVideo extends MessageBase {
     filename: string;
     mime: string;
     url: string;
+    filePath?: string;
+    fileHash?: string;
 }
 
 export interface MessageAudio extends MessageBase {
@@ -65,6 +71,8 @@ export interface MessageAudio extends MessageBase {
     filename: string;
     mime: string;
     url: string;
+    filePath?: string;
+    fileHash?: string;
 }
 
 export type Message = MessageSystem | MessageSystemNameChange | MessageText | MessageImage | MessageFile | MessageVideo | MessageAudio;

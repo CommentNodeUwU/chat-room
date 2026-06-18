@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { BinaryWriter } from '../shared/binaryWriter.js';
 import * as enums from '../shared/wsEnums.js';
 import type { ExtWebSocket, Message } from "./interfaces.js";
@@ -16,6 +17,9 @@ export class Channel {
         while (this.messages.length > 200) {
             const removed = this.messages.shift();
             if (removed) {
+                const fileHash = (removed as any).fileHash as string | undefined;
+                const filePath = (removed as any).filePath as string | undefined;
+                this.deleteUploadIfUnused(fileHash, filePath);
                 const writer = new BinaryWriter();
                 writer
                     .uint8(enums.SERVER_DELETE_MESSAGE)
@@ -30,6 +34,9 @@ export class Channel {
             const message = this.messages[index];
             if (message.time + message.ttl < time) {
                 this.messages.splice(index, 1);
+                const fileHash = (message as any).fileHash as string | undefined;
+                const filePath = (message as any).filePath as string | undefined;
+                this.deleteUploadIfUnused(fileHash, filePath);
                 const writer = new BinaryWriter();
                 writer
                     .uint8(enums.SERVER_DELETE_MESSAGE)
@@ -39,6 +46,16 @@ export class Channel {
                 this.broadcast(writer.getBuffer());
             }
         }
+    }
+
+    private deleteUploadIfUnused(fileHash: string | undefined, filePath: string | undefined) {
+        if (!filePath) {
+            return;
+        }
+        if (fileHash && this.messages.some(message => (message as any).fileHash === fileHash)) {
+            return;
+        }
+        fs.promises.unlink(filePath).catch(() => undefined);
     }
     private broadcast(data: Uint8Array) {
         for (const client of this.clients) {
@@ -223,7 +240,7 @@ export class Channel {
             .string(text);
         this.broadcast(writer.getBuffer());
     }
-    clientMessageImage(client: ExtWebSocket, url: string) {
+    clientMessageImage(client: ExtWebSocket, url: string, filePath?: string, fileHash?: string) {
         const user = client.user;
         const time = Date.now();
 
@@ -232,6 +249,8 @@ export class Channel {
             user,
             address: user.address,
             url,
+            filePath,
+            fileHash,
             time,
             ttl: DEFAULT_TTL,
         } as any);
@@ -248,7 +267,7 @@ export class Channel {
         this.broadcast(writer.getBuffer());
     }
 
-    clientMessageFile(client: ExtWebSocket, filename: string, mime: string, url: string) {
+    clientMessageFile(client: ExtWebSocket, filename: string, mime: string, url: string, filePath?: string, fileHash?: string) {
         const user = client.user;
         const time = Date.now();
 
@@ -259,6 +278,8 @@ export class Channel {
             filename,
             mime,
             url,
+            filePath,
+            fileHash,
             time,
             ttl: DEFAULT_TTL,
         } as any);
@@ -277,7 +298,7 @@ export class Channel {
         this.broadcast(writer.getBuffer());
     }
 
-    clientMessageVideo(client: ExtWebSocket, filename: string, mime: string, url: string) {
+    clientMessageVideo(client: ExtWebSocket, filename: string, mime: string, url: string, filePath?: string, fileHash?: string) {
         const user = client.user;
         const time = Date.now();
 
@@ -288,6 +309,8 @@ export class Channel {
             filename,
             mime,
             url,
+            filePath,
+            fileHash,
             time,
             ttl: DEFAULT_TTL,
         } as any);
@@ -306,7 +329,7 @@ export class Channel {
         this.broadcast(writer.getBuffer());
     }
 
-    clientMessageAudio(client: ExtWebSocket, filename: string, mime: string, url: string) {
+    clientMessageAudio(client: ExtWebSocket, filename: string, mime: string, url: string, filePath?: string, fileHash?: string) {
         const user = client.user;
         const time = Date.now();
 
@@ -317,6 +340,8 @@ export class Channel {
             filename,
             mime,
             url,
+            filePath,
+            fileHash,
             time,
             ttl: DEFAULT_TTL,
         } as any);

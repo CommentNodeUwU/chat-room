@@ -3,6 +3,7 @@ import { URL } from 'node:url';
 import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import proxy from 'express-http-proxy';
 import { WebSocketServer } from 'ws';
 import { BinaryReader } from '../shared/binaryReader.js';
@@ -51,6 +52,14 @@ const uploadsDir = path.join(uploadRoot, 'uploads');
 await fs.promises.mkdir(uploadsDir, { recursive: true });
 app.use('/uploads', express.static(uploadsDir));
 
+const uploadHashes = new Map<string, string>();
+for (const entry of await fs.promises.readdir(uploadsDir)) {
+    const match = entry.match(/^([0-9a-f]{64})(\..+)?$/);
+    if (match) {
+        uploadHashes.set(match[1], entry);
+    }
+}
+
 function sanitizeFilename(filename: string) {
     return path.basename(filename || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_');
 }
@@ -67,18 +76,28 @@ function extensionFromMime(mime: string) {
     return '';
 }
 
-function generateUploadFilename(filename: string, mime?: string) {
+type SavedUpload = { url: string; filePath: string; fileHash: string };
+
+async function saveUpload(filename: string, data: Uint8Array, mime?: string): Promise<SavedUpload> {
+    const hash = crypto.createHash('sha256').update(data).digest('hex');
+    const existingFilename = uploadHashes.get(hash);
+    if (existingFilename) {
+        const existingPath = path.join(uploadsDir, existingFilename);
+        try {
+            await fs.promises.access(existingPath);
+            return { url: `/uploads/${encodeURIComponent(existingFilename)}`, filePath: existingPath, fileHash: hash };
+        } catch {
+            // Fall through and recreate if the file was removed accidentally.
+        }
+    }
+
     const sanitized = sanitizeFilename(filename);
     const ext = path.extname(sanitized) || extensionFromMime(mime || '');
-    const name = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}${ext}`;
-    return name;
-}
-
-async function saveUpload(filename: string, data: Uint8Array, mime?: string) {
-    const name = generateUploadFilename(filename, mime);
-    const filePath = path.join(uploadsDir, name);
+    const storedFilename = `${hash}${ext}`;
+    const filePath = path.join(uploadsDir, storedFilename);
     await fs.promises.writeFile(filePath, data);
-    return `/uploads/${encodeURIComponent(name)}`;
+    uploadHashes.set(hash, storedFilename);
+    return { url: `/uploads/${encodeURIComponent(storedFilename)}`, filePath, fileHash: hash };
 }
 
 const server = createServer(app);
@@ -113,7 +132,12 @@ async function handleChatMessage(client: ExtWebSocket, reader: BinaryReader) {
         }
         case enums.MESSAGE_IMAGE: {
             const image = reader.u8array();
-            const url = await saveUpload(`${Date.now()}.png`, image, 'image/png');
+            const upload = await saveUpload(`${Date.now()}.png`, image, 'image/png');
+            user.channel.clientMessageImage(client, upload.url, upload.filePath, upload.fileHash);
+            break;
+        }
+        case enums.MESSAGE_IMAGE_URL: {
+            const url = reader.string();
             user.channel.clientMessageImage(client, url);
             break;
         }
@@ -126,8 +150,8 @@ async function handleChatMessage(client: ExtWebSocket, reader: BinaryReader) {
                 console.warn(`Rejected file from user ${user.id}: ${filename} (${data.length} bytes) exceeds limit`);
                 break;
             }
-            const url = await saveUpload(filename, data, mime);
-            user.channel.clientMessageFile(client, filename, mime, url);
+            const upload = await saveUpload(filename, data, mime);
+            user.channel.clientMessageFile(client, filename, mime, upload.url, upload.filePath, upload.fileHash);
             break;
         }
         case enums.MESSAGE_VIDEO: {
@@ -139,8 +163,8 @@ async function handleChatMessage(client: ExtWebSocket, reader: BinaryReader) {
                 console.warn(`Rejected video from user ${user.id}: ${filename} (${data.length} bytes) exceeds limit`);
                 break;
             }
-            const url = await saveUpload(filename, data, mime);
-            user.channel.clientMessageVideo(client, filename, mime, url);
+            const upload = await saveUpload(filename, data, mime);
+            user.channel.clientMessageVideo(client, filename, mime, upload.url, upload.filePath, upload.fileHash);
             break;
         }
         case enums.MESSAGE_AUDIO: {
@@ -152,8 +176,8 @@ async function handleChatMessage(client: ExtWebSocket, reader: BinaryReader) {
                 console.warn(`Rejected audio from user ${user.id}: ${filename} (${data.length} bytes) exceeds limit`);
                 break;
             }
-            const url = await saveUpload(filename, data, mime);
-            user.channel.clientMessageAudio(client, filename, mime, url);
+            const upload = await saveUpload(filename, data, mime);
+            user.channel.clientMessageAudio(client, filename, mime, upload.url, upload.filePath, upload.fileHash);
             break;
         }
         default:
