@@ -76,6 +76,7 @@ const sendButton = element('send-button');
 const uploadProgress = element<HTMLDivElement>('upload-progress');
 const uploadProgressFill = element<HTMLDivElement>('upload-progress-fill');
 const uploadProgressLabel = element<HTMLDivElement>('upload-progress-label');
+const uploadCancelButton = element<HTMLButtonElement>('upload-cancel-button');
 
 function resetInfoDialog() {
     infoDialog.close();
@@ -89,21 +90,35 @@ function removeAllChildren(node: Node) {
     }
 }
 
+let currentUploadXhr: XMLHttpRequest | null = null;
+
 function setUploadProgress(percent: number, label: string) {
     uploadProgress.hidden = false;
     uploadProgressFill.style.width = `${percent}%`;
     uploadProgressLabel.textContent = `${label} ${percent}%`;
+    uploadCancelButton.hidden = false;
 }
 
 function hideUploadProgress() {
     uploadProgress.hidden = true;
     uploadProgressFill.style.width = '0%';
     uploadProgressLabel.textContent = '';
+    uploadCancelButton.hidden = true;
+    currentUploadXhr = null;
 }
+
+function cancelUpload() {
+    if (currentUploadXhr) {
+        currentUploadXhr.abort();
+    }
+}
+
+uploadCancelButton.addEventListener('click', cancelUpload);
 
 function uploadFile(file: File, progressCallback: (percent: number) => void): Promise<{ url: string }> {
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
+        currentUploadXhr = xhr;
         xhr.open('POST', '/upload');
         xhr.setRequestHeader('X-Upload-Filename', encodeURIComponent(file.name));
         xhr.setRequestHeader('X-Upload-Mime', file.type || 'application/octet-stream');
@@ -116,6 +131,7 @@ function uploadFile(file: File, progressCallback: (percent: number) => void): Pr
         };
 
         xhr.onload = () => {
+            currentUploadXhr = null;
             if (xhr.status >= 200 && xhr.status < 300) {
                 try {
                     resolve(JSON.parse(xhr.responseText));
@@ -127,7 +143,16 @@ function uploadFile(file: File, progressCallback: (percent: number) => void): Pr
             }
         };
 
-        xhr.onerror = () => reject(new Error('Upload failed')); 
+        xhr.onerror = () => {
+            currentUploadXhr = null;
+            reject(new Error('Upload failed'));
+        };
+
+        xhr.onabort = () => {
+            currentUploadXhr = null;
+            reject(new Error('Upload canceled'));
+        };
+
         xhr.send(file);
     });
 }
@@ -147,6 +172,9 @@ async function uploadAndSendFile(file: File) {
             wsMessageFileUrl(file.name, file.type || 'application/octet-stream', url);
         }
     } catch (error) {
+        if (error instanceof Error && error.message === 'Upload canceled') {
+            return;
+        }
         resetInfoDialog();
         infoMessage.textContent = `Upload failed: ${error instanceof Error ? error.message : 'unknown error'}`;
         infoDialog.showModal();
