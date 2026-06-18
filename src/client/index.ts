@@ -72,6 +72,8 @@ const chatInput = element<HTMLInputElement>('chat-input');
 const emojiButton = element('emoji-button');
 const fileButton = element('file-button');
 const fileInput = element<HTMLInputElement>('file-input');
+const imageButton = element('image-button');
+const imageInput = element<HTMLInputElement>('image-input');
 const sendButton = element('send-button');
 const uploadProgress = element<HTMLDivElement>('upload-progress');
 const uploadProgressFill = element<HTMLDivElement>('upload-progress-fill');
@@ -605,6 +607,25 @@ fileInput.addEventListener('change', () => {
 
 fileButton.addEventListener('click', async () => {
     fileInput.click();
+});
+
+imageInput.addEventListener('change', () => {
+    const file = imageInput.files?.item(0);
+    if (file) {
+        if (file.size > MAX_FILE_BYTES) {
+            resetInfoDialog();
+            infoMessage.textContent = `The selected file exceeds the maximum size of ${MAX_FILE_BYTES / (1024 * 1024)} MB.`;
+            infoDialog.showModal();
+            return;
+        } else {
+            uploadAndSendFile(file);
+        }
+    }
+    fileInput.value = '';
+});
+
+imageButton.addEventListener('click', async () => {
+    imageInput.click();
 });
 
 // Sticker picker
