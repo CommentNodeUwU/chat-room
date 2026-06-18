@@ -174,8 +174,8 @@ function readChannel(reader: BinaryReader) {
                 const date = new Date(time);
                 const name = reader.string();
                 const address = reader.string();
-                const image = reader.u8array();
-                messages.push(createChatMessageImage(userId, name, address, date, image, imageView));
+                const url = reader.string();
+                messages.push(createChatMessageImage(userId, name, address, date, url, imageView));
                 break;
             }
             case enums.MESSAGE_FILE: {
@@ -183,9 +183,9 @@ function readChannel(reader: BinaryReader) {
                 const name = reader.string();
                 const address = reader.string();
                 const filename = reader.string();
-                const mime = reader.string();
-                const data = reader.u8array();
-                messages.push(createChatMessageFile(userId, name, address, date, filename, mime, data));
+                reader.string();
+                const url = reader.string();
+                messages.push(createChatMessageFile(userId, name, address, date, filename, url));
                 break;
             }
             case enums.MESSAGE_VIDEO: {
@@ -193,9 +193,9 @@ function readChannel(reader: BinaryReader) {
                 const name = reader.string();
                 const address = reader.string();
                 const filename = reader.string();
-                const mime = reader.string();
-                const data = reader.u8array();
-                messages.push(createChatMessageVideo(userId, name, address, date, filename, mime, data));
+                reader.string();
+                const url = reader.string();
+                messages.push(createChatMessageVideo(userId, name, address, date, filename, url));
                 break;
             }
         }
@@ -227,24 +227,24 @@ function readUserMessage(reader: BinaryReader) {
             break;
         }
         case enums.MESSAGE_IMAGE: {
-            const image = reader.u8array();
-            const message = createChatMessageImage(userId, user?.name || DEFAULT_NAME, address, date, image, imageView);
+            const url = reader.string();
+            const message = createChatMessageImage(userId, user?.name || DEFAULT_NAME, address, date, url, imageView);
             addMessage(message);
             break;
         }
         case enums.MESSAGE_FILE: {
             const filename = reader.string();
-            const mime = reader.string();
-            const data = reader.u8array();
-            const message = createChatMessageFile(userId, user?.name || DEFAULT_NAME, address, date, filename, mime, data);
+            reader.string();
+            const url = reader.string();
+            const message = createChatMessageFile(userId, user?.name || DEFAULT_NAME, address, date, filename, url);
             addMessage(message);
             break;
         }
         case enums.MESSAGE_VIDEO: {
             const filename = reader.string();
-            const mime = reader.string();
-            const data = reader.u8array();
-            const message = createChatMessageVideo(userId, user?.name || DEFAULT_NAME, address, date, filename, mime, data);
+            reader.string();
+            const url = reader.string();
+            const message = createChatMessageVideo(userId, user?.name || DEFAULT_NAME, address, date, filename, url);
             addMessage(message);
             break;
         }

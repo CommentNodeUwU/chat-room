@@ -37,7 +37,7 @@ export interface MessageImage extends MessageBase {
     type: typeof enums.MESSAGE_IMAGE;
     user: User;
     address: string;
-    image: Uint8Array;
+    url: string;
 }
 
 export interface MessageFile extends MessageBase {
@@ -46,7 +46,7 @@ export interface MessageFile extends MessageBase {
     address: string;
     filename: string;
     mime: string;
-    data: Uint8Array;
+    url: string;
 }
 
 export interface MessageVideo extends MessageBase {
@@ -55,7 +55,7 @@ export interface MessageVideo extends MessageBase {
     address: string;
     filename: string;
     mime: string;
-    data: Uint8Array;
+    url: string;
 }
 
 export type Message = MessageSystem | MessageSystemNameChange | MessageText | MessageImage | MessageFile | MessageVideo;

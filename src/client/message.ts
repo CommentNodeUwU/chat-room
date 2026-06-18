@@ -63,27 +63,24 @@ export function createChatMessageText(userId: number, name: string, address: str
     return { type: 2, userId, time: date.getTime(), node, nameNode };
 }
 
-export function createChatMessageImage(userId: number, name: string, address: string, date: Date, image: Uint8Array<ArrayBuffer>, onClick?: (src: string) => void): Message {
+export function createChatMessageImage(userId: number, name: string, address: string, date: Date, url: string, onClick?: (src: string) => void): Message {
     const { node, nameNode, messageNode } = createChatMessageBase(name, address, date);
-    const src = URL.createObjectURL(new Blob([image], { type: 'image/png' }));
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'chat-message-image-button';
     if (onClick) {
-        button.addEventListener('click', () => onClick(src));
+        button.addEventListener('click', () => onClick(url));
     }
     const img = new Image();
     img.className = 'chat-message-image';
-    img.src = src;
+    img.src = url;
     button.appendChild(img);
     messageNode.appendChild(button);
     return { type: 3, userId, time: date.getTime(), node, nameNode };
 }
 
-export function createChatMessageVideo(userId: number, name: string, address: string, date: Date, filename: string, mime: string, data: Uint8Array): Message {
+export function createChatMessageVideo(userId: number, name: string, address: string, date: Date, filename: string, url: string): Message {
     const { node, nameNode, messageNode } = createChatMessageBase(name, address, date);
-    const blob = new Blob([data as any], { type: mime || 'video/mp4' });
-    const url = URL.createObjectURL(blob);
     const video = document.createElement('video');
     video.className = 'chat-message-video';
     video.src = url;
@@ -99,10 +96,8 @@ export function createChatMessageVideo(userId: number, name: string, address: st
     return { type: enums.MESSAGE_VIDEO, userId, time: date.getTime(), node, nameNode } as Message;
 }
 
-export function createChatMessageFile(userId: number, name: string, address: string, date: Date, filename: string, mime: string, data: Uint8Array): Message {
+export function createChatMessageFile(userId: number, name: string, address: string, date: Date, filename: string, url: string): Message {
     const { node, nameNode, messageNode } = createChatMessageBase(name, address, date);
-    const blob = new Blob([data as any], { type: mime || 'application/octet-stream' });
-    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;

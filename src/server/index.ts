@@ -10,7 +10,7 @@ import { BinaryWriter } from '../shared/binaryWriter.js';
 import * as enums from '../shared/wsEnums.js';
 import config from '../../config.json' with { type: 'json' };
 import type { ExtWebSocket } from './interfaces.js';
-import { findOrCreateUser } from './user.js';
+import { findOrCreateUser, saveUserMetadata } from './user.js';
 import { findOrCreateChannel } from './channel.js';
 
 const port = config.port;
@@ -45,6 +45,42 @@ app.get('/stickers.json', async (_req, res) => {
         res.status(500).json({ error: 'failed' });
     }
 });
+
+const uploadRoot = path.join('/tmp', 'chat-room');
+const uploadsDir = path.join(uploadRoot, 'uploads');
+await fs.promises.mkdir(uploadsDir, { recursive: true });
+app.use('/uploads', express.static(uploadsDir));
+
+function sanitizeFilename(filename: string) {
+    return path.basename(filename || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
+function extensionFromMime(mime: string) {
+    const normalized = (mime || '').toLowerCase();
+    if (normalized === 'image/jpeg') return '.jpg';
+    if (normalized === 'image/png') return '.png';
+    if (normalized === 'image/gif') return '.gif';
+    if (normalized === 'image/webp') return '.webp';
+    if (normalized === 'video/mp4') return '.mp4';
+    if (normalized === 'video/webm') return '.webm';
+    if (normalized === 'video/ogg') return '.ogv';
+    return '';
+}
+
+function generateUploadFilename(filename: string, mime?: string) {
+    const sanitized = sanitizeFilename(filename);
+    const ext = path.extname(sanitized) || extensionFromMime(mime || '');
+    const name = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}${ext}`;
+    return name;
+}
+
+async function saveUpload(filename: string, data: Uint8Array, mime?: string) {
+    const name = generateUploadFilename(filename, mime);
+    const filePath = path.join(uploadsDir, name);
+    await fs.promises.writeFile(filePath, data);
+    return `/uploads/${encodeURIComponent(name)}`;
+}
+
 const server = createServer(app);
 const wss = new WebSocketServer<typeof ExtWebSocket>({ noServer: true });
 
@@ -63,7 +99,7 @@ function getAddress(req: IncomingMessage) {
     return (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0].trim() || req.socket.remoteAddress || '';
 }
 
-function handleChatMessage(client: ExtWebSocket, reader: BinaryReader) {
+async function handleChatMessage(client: ExtWebSocket, reader: BinaryReader) {
     const user = client.user;
     const type = reader.uint8();
     switch (type) {
@@ -77,7 +113,8 @@ function handleChatMessage(client: ExtWebSocket, reader: BinaryReader) {
         }
         case enums.MESSAGE_IMAGE: {
             const image = reader.u8array();
-            user.channel.clientMessageImage(client, image);
+            const url = await saveUpload(`${Date.now()}.png`, image, 'image/png');
+            user.channel.clientMessageImage(client, url);
             break;
         }
         case enums.MESSAGE_FILE: {
@@ -89,7 +126,8 @@ function handleChatMessage(client: ExtWebSocket, reader: BinaryReader) {
                 console.warn(`Rejected file from user ${user.id}: ${filename} (${data.length} bytes) exceeds limit`);
                 break;
             }
-            user.channel.clientMessageFile(client, filename, mime, data);
+            const url = await saveUpload(filename, data, mime);
+            user.channel.clientMessageFile(client, filename, mime, url);
             break;
         }
         case enums.MESSAGE_VIDEO: {
@@ -101,7 +139,8 @@ function handleChatMessage(client: ExtWebSocket, reader: BinaryReader) {
                 console.warn(`Rejected video from user ${user.id}: ${filename} (${data.length} bytes) exceeds limit`);
                 break;
             }
-            user.channel.clientMessageVideo(client, filename, mime, data);
+            const url = await saveUpload(filename, data, mime);
+            user.channel.clientMessageVideo(client, filename, mime, url);
             break;
         }
         default:
@@ -109,12 +148,12 @@ function handleChatMessage(client: ExtWebSocket, reader: BinaryReader) {
     }
 }
 
-function handleClientMessage(client: ExtWebSocket, reader: BinaryReader) {
+async function handleClientMessage(client: ExtWebSocket, reader: BinaryReader) {
     const user = client.user;
     const type = reader.uint8();
     switch (type) {
         case enums.CLIENT_MESSAGE: {
-            handleChatMessage(client, reader);
+            await handleChatMessage(client, reader);
             break;
         }
         case enums.CLIENT_SET_NAME: {
@@ -123,6 +162,7 @@ function handleClientMessage(client: ExtWebSocket, reader: BinaryReader) {
             if (oldName !== newName) {
                 user.name = newName;
                 user.channel.clientNameChange(client, oldName, newName);
+                saveUserMetadata(user).catch(console.error);
             }
             break;
         }
@@ -147,11 +187,11 @@ wss.on('connection', ws => {
     ws.isAlive = true;
     ws.on('error', console.error);
     ws.on('pong', () => ws.isAlive = true);
-    ws.on('message', (data: ArrayBuffer) => {
+    ws.on('message', async (data: ArrayBuffer) => {
         try {
             if (data instanceof ArrayBuffer) {
                 const reader = new BinaryReader(new Uint8Array(data));
-                handleClientMessage(ws, reader);
+                await handleClientMessage(ws, reader);
             }
         } catch (e) {
             console.error(e);
@@ -200,6 +240,7 @@ server.on('upgrade', (req, socket, head) => {
         user.address = getAddress(req);
         if (name) {
             user.name = name;
+            saveUserMetadata(user).catch(console.error);
         }
         wss.handleUpgrade(req, socket, head, ws => {
             ws.binaryType = 'arraybuffer';

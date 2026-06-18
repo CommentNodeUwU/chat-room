@@ -79,7 +79,7 @@ export class Channel {
                     writer
                         .string(message.user.name)
                         .string(message.address)
-                        .u8array(message.image);
+                        .string((message as any).url);
                     break;
                 case enums.MESSAGE_FILE:
                     writer
@@ -87,7 +87,7 @@ export class Channel {
                         .string(message.address)
                         .string((message as any).filename)
                         .string((message as any).mime)
-                        .u8array((message as any).data);
+                        .string((message as any).url);
                     break;
                 case enums.MESSAGE_VIDEO:
                     writer
@@ -95,7 +95,7 @@ export class Channel {
                         .string(message.address)
                         .string((message as any).filename)
                         .string((message as any).mime)
-                        .u8array((message as any).data);
+                        .string((message as any).url);
                     break;
             }
         });
@@ -215,7 +215,7 @@ export class Channel {
             .string(text);
         this.broadcast(writer.getBuffer());
     }
-    clientMessageImage(client: ExtWebSocket, image: Uint8Array) {
+    clientMessageImage(client: ExtWebSocket, url: string) {
         const user = client.user;
         const time = Date.now();
 
@@ -223,10 +223,10 @@ export class Channel {
             type: enums.MESSAGE_IMAGE,
             user,
             address: user.address,
-            image,
+            url,
             time,
             ttl: DEFAULT_TTL,
-        });
+        } as any);
         this.removeOldMessages();
 
         const writer = new BinaryWriter();
@@ -236,11 +236,11 @@ export class Channel {
             .uint32(user.id)
             .string(user.address)
             .float64(time)
-            .u8array(image);
+            .string(url);
         this.broadcast(writer.getBuffer());
     }
 
-    clientMessageFile(client: ExtWebSocket, filename: string, mime: string, data: Uint8Array) {
+    clientMessageFile(client: ExtWebSocket, filename: string, mime: string, url: string) {
         const user = client.user;
         const time = Date.now();
 
@@ -250,7 +250,7 @@ export class Channel {
             address: user.address,
             filename,
             mime,
-            data,
+            url,
             time,
             ttl: DEFAULT_TTL,
         } as any);
@@ -265,11 +265,11 @@ export class Channel {
             .float64(time)
             .string(filename)
             .string(mime)
-            .u8array(data);
+            .string(url);
         this.broadcast(writer.getBuffer());
     }
 
-    clientMessageVideo(client: ExtWebSocket, filename: string, mime: string, data: Uint8Array) {
+    clientMessageVideo(client: ExtWebSocket, filename: string, mime: string, url: string) {
         const user = client.user;
         const time = Date.now();
 
@@ -279,7 +279,7 @@ export class Channel {
             address: user.address,
             filename,
             mime,
-            data,
+            url,
             time,
             ttl: DEFAULT_TTL,
         } as any);
@@ -294,7 +294,7 @@ export class Channel {
             .float64(time)
             .string(filename)
             .string(mime)
-            .u8array(data);
+            .string(url);
         this.broadcast(writer.getBuffer());
     }
 }
