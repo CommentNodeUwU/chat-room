@@ -1,4 +1,4 @@
-import config from '../../config.json';
+import config from '../../config.json' with { type: 'json' };
 
 export const DEFAULT_NAME = 'anonymous';
 export const MAX_FILE_BYTES = config.maxFileBytes;
