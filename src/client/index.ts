@@ -1,12 +1,13 @@
 import { BinaryReader } from '../shared/binaryReader.js';
 import * as enums from '../shared/wsEnums.js';
 import { DEFAULT_NAME } from './constants.js';
+import { MAX_FILE_BYTES } from './constants.js';
 import type { Message, User } from './interfaces.js';
 import {
-    createChatMessageImage, createChatMessageText, createUserJoinMessage, createUserLeftMessage, createUserRenameMessage
+    createChatMessageImage, createChatMessageText, createUserJoinMessage, createUserLeftMessage, createUserRenameMessage, createChatMessageFile, createChatMessageVideo
 } from './message.js';
 import './styles.scss';
-import { closeWs, createWs, isWsCreated, wsMessageImage, wsMessageText, wsSetChannel, wsSetName } from './ws.js';
+import { closeWs, createWs, isWsCreated, wsMessageImage, wsMessageText, wsMessageFile, wsMessageVideo, wsSetChannel, wsSetName } from './ws.js';
 
 let myId = -1;
 let myName = '';
@@ -33,6 +34,10 @@ const content = element('content');
 
 const connectDialog = element<HTMLDialogElement>('connect-dialog');
 
+const infoDialog = element<HTMLDialogElement>('info-dialog');
+const infoMessage = element('info-message');
+const infoOkButton = element('info-ok');
+
 const nameDialog = element<HTMLDialogElement>('name-dialog');
 const nameInput = element<HTMLInputElement>('name-input');
 const tokenInput = element<HTMLInputElement>('token-input');
@@ -49,7 +54,10 @@ const imageViewDialog = element<HTMLDialogElement>('image-view-dialog');
 const imageViewImage = element<HTMLImageElement>('image-view-image');
 
 const imagePasteDialog = element<HTMLDialogElement>('image-paste-dialog');
+const imagePasteTitle = element<HTMLDivElement>('image-paste-title');
+const imagePasteInfo = element<HTMLDivElement>('image-paste-info');
 const imagePastePreview = element<HTMLImageElement>('image-paste-preview');
+const videoPastePreview = element<HTMLVideoElement>('video-paste-preview');
 const imagePasteYesButton = element('image-paste-yes');
 const imagePasteNoButton = element('image-paste-no');
 
@@ -62,9 +70,15 @@ const chatList = element('chat-list');
 
 const chatInput = element<HTMLInputElement>('chat-input');
 const emojiButton = element('emoji-button');
-const imageButton = element('image-button');
-const imageInput = element<HTMLInputElement>('image-input');
+const fileButton = element('file-button');
+const fileInput = element<HTMLInputElement>('file-input');
 const sendButton = element('send-button');
+
+function resetInfoDialog() {
+    infoDialog.close();
+    infoMessage.textContent = '';
+    infoOkButton.addEventListener('click', resetInfoDialog);
+}
 
 function removeAllChildren(node: Node) {
     while (node.firstChild) {
@@ -164,6 +178,26 @@ function readChannel(reader: BinaryReader) {
                 messages.push(createChatMessageImage(userId, name, address, date, image, imageView));
                 break;
             }
+            case enums.MESSAGE_FILE: {
+                const date = new Date(time);
+                const name = reader.string();
+                const address = reader.string();
+                const filename = reader.string();
+                const mime = reader.string();
+                const data = reader.u8array();
+                messages.push(createChatMessageFile(userId, name, address, date, filename, mime, data));
+                break;
+            }
+            case enums.MESSAGE_VIDEO: {
+                const date = new Date(time);
+                const name = reader.string();
+                const address = reader.string();
+                const filename = reader.string();
+                const mime = reader.string();
+                const data = reader.u8array();
+                messages.push(createChatMessageVideo(userId, name, address, date, filename, mime, data));
+                break;
+            }
         }
     });
 
@@ -195,6 +229,22 @@ function readUserMessage(reader: BinaryReader) {
         case enums.MESSAGE_IMAGE: {
             const image = reader.u8array();
             const message = createChatMessageImage(userId, user?.name || DEFAULT_NAME, address, date, image, imageView);
+            addMessage(message);
+            break;
+        }
+        case enums.MESSAGE_FILE: {
+            const filename = reader.string();
+            const mime = reader.string();
+            const data = reader.u8array();
+            const message = createChatMessageFile(userId, user?.name || DEFAULT_NAME, address, date, filename, mime, data);
+            addMessage(message);
+            break;
+        }
+        case enums.MESSAGE_VIDEO: {
+            const filename = reader.string();
+            const mime = reader.string();
+            const data = reader.u8array();
+            const message = createChatMessageVideo(userId, user?.name || DEFAULT_NAME, address, date, filename, mime, data);
             addMessage(message);
             break;
         }
@@ -376,27 +426,54 @@ chatInput.addEventListener('paste', function (event: ClipboardEvent) {
     const items = clipboardData.items;
     for (let i = 0; i < items.length; i++) {
         const item = items[i];
-
-        if (item.type.indexOf('image') !== -1) {
-            event.preventDefault();
-
-            const file = item.getAsFile();
-            
-            if (file) {
-                imagePastePreview.src = URL.createObjectURL(file);
-                imagePasteDialog.showModal();
-                imagePasteYesButton.onclick = () => {
-                    imagePasteDialog.close();
-                    file.arrayBuffer()
-                        .then(buffer => wsMessageImage(new Uint8Array(buffer)));
-                };
-                imagePasteNoButton.onclick = () => {
-                    imagePasteDialog.close();
-                };
-            }
-            
-            break; 
+        if (item.kind !== 'file') {
+            continue;
         }
+
+        const file = item.getAsFile();
+        if (!file) {
+            continue;
+        }
+
+        event.preventDefault();
+
+        if (file.size > MAX_FILE_BYTES) {
+            resetInfoDialog();
+            infoMessage.textContent = `The pasted file exceeds the maximum size of ${MAX_FILE_BYTES / (1024 * 1024)} MB.`;
+            infoDialog.showModal();
+            return;
+        }
+
+        const isImage = file.type && file.type.indexOf('image') !== -1;
+        const isVideo = file.type && file.type.indexOf('video') !== -1;
+        imagePasteTitle.textContent = isImage ? 'Do you want to send the image?' : isVideo ? 'Do you want to send the video?' : 'Do you want to send the file?';
+        imagePasteInfo.textContent = isImage ? '' : `${file.name} (${Math.round(file.size / 1024)} KB)`;
+        imagePastePreview.src = isImage ? URL.createObjectURL(file) : '';
+        imagePastePreview.style.display = isImage ? '' : 'none';
+        videoPastePreview.src = isVideo ? URL.createObjectURL(file) : '';
+        videoPastePreview.style.display = isVideo ? '' : 'none';
+        if (isVideo) {
+            videoPastePreview.load();
+        }
+        imagePasteDialog.showModal();
+
+        imagePasteYesButton.onclick = () => {
+            imagePasteDialog.close();
+            file.arrayBuffer().then(buffer => {
+                const data = new Uint8Array(buffer);
+                if (isImage) {
+                    wsMessageImage(data);
+                } else if (isVideo) {
+                    wsMessageVideo(file.name, file.type || 'video/mp4', data);
+                } else {
+                    wsMessageFile(file.name, file.type || 'application/octet-stream', data);
+                }
+            });
+        };
+        imagePasteNoButton.onclick = () => {
+            imagePasteDialog.close();
+        };
+        break;
     }
 });
 
@@ -404,17 +481,32 @@ sendButton.addEventListener('click', () => {
     sendText();
 });
 
-imageInput.addEventListener('change', () => {
-    const file = imageInput.files?.item(0);
+fileInput.addEventListener('change', () => {
+    const file = fileInput.files?.item(0);
     if (file) {
-        file.arrayBuffer()
-            .then(buffer => wsMessageImage(new Uint8Array(buffer)));
+        if (file.size > MAX_FILE_BYTES) {
+            resetInfoDialog();
+            infoMessage.textContent = `The selected file exceeds the maximum size of ${MAX_FILE_BYTES / (1024 * 1024)} MB.`;
+            infoDialog.showModal();
+            return;
+        } else {
+            file.arrayBuffer().then(buffer => {
+                const data = new Uint8Array(buffer);
+                if (file.type && file.type.indexOf('image') !== -1) {
+                    wsMessageImage(data);
+                } else if (file.type && file.type.indexOf('video') !== -1) {
+                    wsMessageVideo(file.name, file.type, data);
+                } else {
+                    wsMessageFile(file.name, file.type || 'application/octet-stream', data);
+                }
+            });
+        }
     }
-    imageInput.value = '';
+    fileInput.value = '';
 });
 
-imageButton.addEventListener('click', async () => {
-    imageInput.click();
+fileButton.addEventListener('click', async () => {
+    fileInput.click();
 });
 
 // Sticker picker

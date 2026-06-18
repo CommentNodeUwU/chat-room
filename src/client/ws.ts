@@ -63,6 +63,34 @@ export function wsMessageImage(image: Uint8Array) {
     ws!.send(writer.getBuffer());
 }
 
+export function wsMessageFile(filename: string, mime: string, data: Uint8Array) {
+    if (!isWsOpen()) {
+        return;
+    }
+    const writer = new BinaryWriter();
+    writer
+        .uint8(enums.CLIENT_MESSAGE)
+        .uint8(enums.MESSAGE_FILE)
+        .string(filename)
+        .string(mime)
+        .u8array(data);
+    ws!.send(writer.getBuffer());
+}
+
+export function wsMessageVideo(filename: string, mime: string, data: Uint8Array) {
+    if (!isWsOpen()) {
+        return;
+    }
+    const writer = new BinaryWriter();
+    writer
+        .uint8(enums.CLIENT_MESSAGE)
+        .uint8(enums.MESSAGE_VIDEO)
+        .string(filename)
+        .string(mime)
+        .u8array(data);
+    ws!.send(writer.getBuffer());
+}
+
 export function wsSetName(name: string) {
     if (!isWsOpen()) {
         return;

@@ -81,6 +81,22 @@ export class Channel {
                         .string(message.address)
                         .u8array(message.image);
                     break;
+                case enums.MESSAGE_FILE:
+                    writer
+                        .string(message.user.name)
+                        .string(message.address)
+                        .string((message as any).filename)
+                        .string((message as any).mime)
+                        .u8array((message as any).data);
+                    break;
+                case enums.MESSAGE_VIDEO:
+                    writer
+                        .string(message.user.name)
+                        .string(message.address)
+                        .string((message as any).filename)
+                        .string((message as any).mime)
+                        .u8array((message as any).data);
+                    break;
             }
         });
     }
@@ -221,6 +237,64 @@ export class Channel {
             .string(user.address)
             .float64(time)
             .u8array(image);
+        this.broadcast(writer.getBuffer());
+    }
+
+    clientMessageFile(client: ExtWebSocket, filename: string, mime: string, data: Uint8Array) {
+        const user = client.user;
+        const time = Date.now();
+
+        this.messages.push({
+            type: enums.MESSAGE_FILE,
+            user,
+            address: user.address,
+            filename,
+            mime,
+            data,
+            time,
+            ttl: DEFAULT_TTL,
+        } as any);
+        this.removeOldMessages();
+
+        const writer = new BinaryWriter();
+        writer
+            .uint8(enums.SERVER_USER_MESSAGE)
+            .uint8(enums.MESSAGE_FILE)
+            .uint32(user.id)
+            .string(user.address)
+            .float64(time)
+            .string(filename)
+            .string(mime)
+            .u8array(data);
+        this.broadcast(writer.getBuffer());
+    }
+
+    clientMessageVideo(client: ExtWebSocket, filename: string, mime: string, data: Uint8Array) {
+        const user = client.user;
+        const time = Date.now();
+
+        this.messages.push({
+            type: enums.MESSAGE_VIDEO,
+            user,
+            address: user.address,
+            filename,
+            mime,
+            data,
+            time,
+            ttl: DEFAULT_TTL,
+        } as any);
+        this.removeOldMessages();
+
+        const writer = new BinaryWriter();
+        writer
+            .uint8(enums.SERVER_USER_MESSAGE)
+            .uint8(enums.MESSAGE_VIDEO)
+            .uint32(user.id)
+            .string(user.address)
+            .float64(time)
+            .string(filename)
+            .string(mime)
+            .u8array(data);
         this.broadcast(writer.getBuffer());
     }
 }

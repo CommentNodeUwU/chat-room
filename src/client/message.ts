@@ -79,3 +79,35 @@ export function createChatMessageImage(userId: number, name: string, address: st
     messageNode.appendChild(button);
     return { type: 3, userId, time: date.getTime(), node, nameNode };
 }
+
+export function createChatMessageVideo(userId: number, name: string, address: string, date: Date, filename: string, mime: string, data: Uint8Array): Message {
+    const { node, nameNode, messageNode } = createChatMessageBase(name, address, date);
+    const blob = new Blob([data as any], { type: mime || 'video/mp4' });
+    const url = URL.createObjectURL(blob);
+    const video = document.createElement('video');
+    video.className = 'chat-message-video';
+    video.src = url;
+    video.controls = true;
+    video.preload = 'metadata';
+    video.style.maxWidth = '100%';
+    video.style.height = 'auto';
+    messageNode.appendChild(video);
+    const caption = document.createElement('div');
+    caption.className = 'chat-message-video-filename';
+    caption.textContent = filename;
+    messageNode.appendChild(caption);
+    return { type: enums.MESSAGE_VIDEO, userId, time: date.getTime(), node, nameNode } as Message;
+}
+
+export function createChatMessageFile(userId: number, name: string, address: string, date: Date, filename: string, mime: string, data: Uint8Array): Message {
+    const { node, nameNode, messageNode } = createChatMessageBase(name, address, date);
+    const blob = new Blob([data as any], { type: mime || 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.textContent = filename;
+    a.className = 'chat-message-file';
+    messageNode.appendChild(a);
+    return { type: enums.MESSAGE_FILE, userId, time: date.getTime(), node, nameNode } as Message;
+}
