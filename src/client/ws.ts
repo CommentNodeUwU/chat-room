@@ -89,6 +89,20 @@ export function wsMessageFile(filename: string, mime: string, data: Uint8Array) 
     ws!.send(writer.getBuffer());
 }
 
+export function wsMessageFileUrl(filename: string, mime: string, url: string) {
+    if (!isWsOpen()) {
+        return;
+    }
+    const writer = new BinaryWriter();
+    writer
+        .uint8(enums.CLIENT_MESSAGE)
+        .uint8(enums.MESSAGE_FILE_URL)
+        .string(filename)
+        .string(mime)
+        .string(url);
+    ws!.send(writer.getBuffer());
+}
+
 export function wsMessageVideo(filename: string, mime: string, data: Uint8Array) {
     if (!isWsOpen()) {
         return;
@@ -103,6 +117,20 @@ export function wsMessageVideo(filename: string, mime: string, data: Uint8Array)
     ws!.send(writer.getBuffer());
 }
 
+export function wsMessageVideoUrl(filename: string, mime: string, url: string) {
+    if (!isWsOpen()) {
+        return;
+    }
+    const writer = new BinaryWriter();
+    writer
+        .uint8(enums.CLIENT_MESSAGE)
+        .uint8(enums.MESSAGE_VIDEO_URL)
+        .string(filename)
+        .string(mime)
+        .string(url);
+    ws!.send(writer.getBuffer());
+}
+
 export function wsMessageAudio(filename: string, mime: string, data: Uint8Array) {
     if (!isWsOpen()) {
         return;
@@ -114,6 +142,20 @@ export function wsMessageAudio(filename: string, mime: string, data: Uint8Array)
         .string(filename)
         .string(mime)
         .u8array(data);
+    ws!.send(writer.getBuffer());
+}
+
+export function wsMessageAudioUrl(filename: string, mime: string, url: string) {
+    if (!isWsOpen()) {
+        return;
+    }
+    const writer = new BinaryWriter();
+    writer
+        .uint8(enums.CLIENT_MESSAGE)
+        .uint8(enums.MESSAGE_AUDIO_URL)
+        .string(filename)
+        .string(mime)
+        .string(url);
     ws!.send(writer.getBuffer());
 }
 

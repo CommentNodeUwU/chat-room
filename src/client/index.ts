@@ -7,7 +7,7 @@ import {
     createChatMessageImage, createChatMessageText, createUserJoinMessage, createUserLeftMessage, createUserRenameMessage, createChatMessageFile, createChatMessageVideo, createChatMessageAudio
 } from './message.js';
 import './styles.scss';
-import { closeWs, createWs, isWsCreated, wsMessageImage, wsMessageImageUrl, wsMessageText, wsMessageFile, wsMessageVideo, wsMessageAudio, wsSetChannel, wsSetName } from './ws.js';
+import { closeWs, createWs, isWsCreated, wsMessageImageUrl, wsMessageText, wsMessageFileUrl, wsMessageVideoUrl, wsMessageAudioUrl, wsSetChannel, wsSetName } from './ws.js';
 
 let myId = -1;
 let myName = '';
@@ -73,6 +73,9 @@ const emojiButton = element('emoji-button');
 const fileButton = element('file-button');
 const fileInput = element<HTMLInputElement>('file-input');
 const sendButton = element('send-button');
+const uploadProgress = element<HTMLDivElement>('upload-progress');
+const uploadProgressFill = element<HTMLDivElement>('upload-progress-fill');
+const uploadProgressLabel = element<HTMLDivElement>('upload-progress-label');
 
 function resetInfoDialog() {
     infoDialog.close();
@@ -83,6 +86,72 @@ function resetInfoDialog() {
 function removeAllChildren(node: Node) {
     while (node.firstChild) {
         node.removeChild(node.firstChild);
+    }
+}
+
+function setUploadProgress(percent: number, label: string) {
+    uploadProgress.hidden = false;
+    uploadProgressFill.style.width = `${percent}%`;
+    uploadProgressLabel.textContent = `${label} ${percent}%`;
+}
+
+function hideUploadProgress() {
+    uploadProgress.hidden = true;
+    uploadProgressFill.style.width = '0%';
+    uploadProgressLabel.textContent = '';
+}
+
+function uploadFile(file: File, progressCallback: (percent: number) => void): Promise<{ url: string }> {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/upload');
+        xhr.setRequestHeader('X-Upload-Filename', file.name);
+        xhr.setRequestHeader('X-Upload-Mime', file.type || 'application/octet-stream');
+
+        xhr.upload.onprogress = event => {
+            if (event.lengthComputable) {
+                const percent = Math.round((event.loaded / event.total) * 100);
+                progressCallback(percent);
+            }
+        };
+
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    resolve(JSON.parse(xhr.responseText));
+                } catch (error) {
+                    reject(error);
+                }
+            } else {
+                reject(new Error(`Upload failed with status ${xhr.status}`));
+            }
+        };
+
+        xhr.onerror = () => reject(new Error('Upload failed')); 
+        xhr.send(file);
+    });
+}
+
+async function uploadAndSendFile(file: File) {
+    try {
+        setUploadProgress(0, 'Uploading');
+        const result = await uploadFile(file, percent => setUploadProgress(percent, 'Uploading'));
+        const url = result.url;
+        if (file.type && file.type.indexOf('image') !== -1) {
+            wsMessageImageUrl(url);
+        } else if (file.type && file.type.indexOf('video') !== -1) {
+            wsMessageVideoUrl(file.name, file.type || 'video/mp4', url);
+        } else if (file.type && file.type.indexOf('audio') !== -1) {
+            wsMessageAudioUrl(file.name, file.type || 'audio/mpeg', url);
+        } else {
+            wsMessageFileUrl(file.name, file.type || 'application/octet-stream', url);
+        }
+    } catch (error) {
+        resetInfoDialog();
+        infoMessage.textContent = `Upload failed: ${error instanceof Error ? error.message : 'unknown error'}`;
+        infoDialog.showModal();
+    } finally {
+        hideUploadProgress();
     }
 }
 
@@ -478,18 +547,7 @@ chatInput.addEventListener('paste', function (event: ClipboardEvent) {
 
         imagePasteYesButton.onclick = () => {
             imagePasteDialog.close();
-            file.arrayBuffer().then(buffer => {
-                const data = new Uint8Array(buffer);
-                if (isImage) {
-                    wsMessageImage(data);
-                } else if (isVideo) {
-                    wsMessageVideo(file.name, file.type || 'video/mp4', data);
-                } else if (isAudio) {
-                    wsMessageAudio(file.name, file.type || 'audio/mpeg', data);
-                } else {
-                    wsMessageFile(file.name, file.type || 'application/octet-stream', data);
-                }
-            });
+            uploadAndSendFile(file);
         };
         imagePasteNoButton.onclick = () => {
             imagePasteDialog.close();
@@ -511,18 +569,7 @@ fileInput.addEventListener('change', () => {
             infoDialog.showModal();
             return;
         } else {
-            file.arrayBuffer().then(buffer => {
-                const data = new Uint8Array(buffer);
-                if (file.type && file.type.indexOf('image') !== -1) {
-                    wsMessageImage(data);
-                } else if (file.type && file.type.indexOf('video') !== -1) {
-                    wsMessageVideo(file.name, file.type, data);
-                } else if (file.type && file.type.indexOf('audio') !== -1) {
-                    wsMessageAudio(file.name, file.type, data);
-                } else {
-                    wsMessageFile(file.name, file.type || 'application/octet-stream', data);
-                }
-            });
+            uploadAndSendFile(file);
         }
     }
     fileInput.value = '';

@@ -20,3 +20,6 @@ export const MESSAGE_FILE = 4;
 export const MESSAGE_VIDEO = 5;
 export const MESSAGE_AUDIO = 6;
 export const MESSAGE_IMAGE_URL = 7;
+export const MESSAGE_FILE_URL = 8;
+export const MESSAGE_VIDEO_URL = 9;
+export const MESSAGE_AUDIO_URL = 10;

@@ -3,8 +3,9 @@ import { BinaryWriter } from '../shared/binaryWriter.js';
 import * as enums from '../shared/wsEnums.js';
 import type { ExtWebSocket, Message } from "./interfaces.js";
 import type { User } from './user.js';
+import config from '../../config.json' with { type: 'json' };
 
-const DEFAULT_TTL = 86400000; // 24 hours
+const DEFAULT_TTL = config.defaultTTL;
 
 export class Channel {
     readonly clients: ExtWebSocket[] = [];

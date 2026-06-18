@@ -4,6 +4,8 @@ import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import proxy from 'express-http-proxy';
 import { WebSocketServer } from 'ws';
 import { BinaryReader } from '../shared/binaryReader.js';
@@ -51,6 +53,55 @@ const uploadRoot = path.join('/tmp', 'chat-room');
 const uploadsDir = path.join(uploadRoot, 'uploads');
 await fs.promises.mkdir(uploadsDir, { recursive: true });
 app.use('/uploads', express.static(uploadsDir));
+
+app.post('/upload', async (req, res) => {
+    const filenameHeader = req.headers['x-upload-filename'];
+    const mimeHeader = req.headers['x-upload-mime'];
+    const filename = typeof filenameHeader === 'string' ? filenameHeader : 'upload';
+    const mime = typeof mimeHeader === 'string' ? mimeHeader : 'application/octet-stream';
+    const maxBytes = config.maxFileBytes;
+    const tempPath = path.join(uploadsDir, `${crypto.randomBytes(16).toString('hex')}.tmp`);
+    const hash = crypto.createHash('sha256');
+    let size = 0;
+
+    const sizeTransform = new Transform({
+        transform(chunk, _encoding, callback) {
+            size += chunk.length;
+            if (size > maxBytes) {
+                callback(new Error('FILE_TOO_LARGE'));
+                return;
+            }
+            hash.update(chunk);
+            callback(null, chunk);
+        }
+    });
+
+    try {
+        await pipeline(req, sizeTransform, fs.createWriteStream(tempPath, { flags: 'wx' }));
+    } catch (error: any) {
+        await fs.promises.unlink(tempPath).catch(() => undefined);
+        if (error?.message === 'FILE_TOO_LARGE') {
+            return res.status(413).json({ error: 'file too large' });
+        }
+        console.error('Upload failed', error);
+        return res.status(500).json({ error: 'upload failed' });
+    }
+
+    const fileHash = hash.digest('hex');
+    const ext = path.extname(sanitizeFilename(filename)) || extensionFromMime(mime || '');
+    const storedFilename = `${fileHash}${ext}`;
+    const storedPath = path.join(uploadsDir, storedFilename);
+
+    try {
+        await fs.promises.access(storedPath);
+        await fs.promises.unlink(tempPath).catch(() => undefined);
+    } catch {
+        await fs.promises.rename(tempPath, storedPath);
+    }
+
+    uploadHashes.set(fileHash, storedFilename);
+    res.json({ url: `/uploads/${encodeURIComponent(storedFilename)}` });
+});
 
 const uploadHashes = new Map<string, string>();
 for (const entry of await fs.promises.readdir(uploadsDir)) {
@@ -100,6 +151,21 @@ async function saveUpload(filename: string, data: Uint8Array, mime?: string): Pr
     return { url: `/uploads/${encodeURIComponent(storedFilename)}`, filePath, fileHash: hash };
 }
 
+function getUploadMetadataFromUrl(url: string) {
+    try {
+        const parsed = new URL(url, 'http://localhost');
+        if (parsed.pathname.startsWith('/uploads/')) {
+            const filename = decodeURIComponent(path.basename(parsed.pathname));
+            const filePath = path.join(uploadsDir, filename);
+            const fileHash = path.parse(filename).name;
+            return { filePath, fileHash };
+        }
+    } catch {
+        // ignore bad URLs
+    }
+    return { filePath: undefined, fileHash: undefined };
+}
+
 const server = createServer(app);
 const wss = new WebSocketServer<typeof ExtWebSocket>({ noServer: true });
 
@@ -138,15 +204,23 @@ async function handleChatMessage(client: ExtWebSocket, reader: BinaryReader) {
         }
         case enums.MESSAGE_IMAGE_URL: {
             const url = reader.string();
-            user.channel.clientMessageImage(client, url);
+            const { filePath, fileHash } = getUploadMetadataFromUrl(url);
+            user.channel.clientMessageImage(client, url, filePath, fileHash);
+            break;
+        }
+        case enums.MESSAGE_FILE_URL: {
+            const filename = reader.string();
+            const mime = reader.string();
+            const url = reader.string();
+            const { filePath, fileHash } = getUploadMetadataFromUrl(url);
+            user.channel.clientMessageFile(client, filename, mime, url, filePath, fileHash);
             break;
         }
         case enums.MESSAGE_FILE: {
             const filename = reader.string();
             const mime = reader.string();
             const data = reader.u8array();
-            const maxBytes = 512 * 1024 * 1024; // 512MB
-            if (data.length > maxBytes) {
+            if (data.length > config.maxFileBytes) {
                 console.warn(`Rejected file from user ${user.id}: ${filename} (${data.length} bytes) exceeds limit`);
                 break;
             }
@@ -154,12 +228,19 @@ async function handleChatMessage(client: ExtWebSocket, reader: BinaryReader) {
             user.channel.clientMessageFile(client, filename, mime, upload.url, upload.filePath, upload.fileHash);
             break;
         }
+        case enums.MESSAGE_VIDEO_URL: {
+            const filename = reader.string();
+            const mime = reader.string();
+            const url = reader.string();
+            const { filePath, fileHash } = getUploadMetadataFromUrl(url);
+            user.channel.clientMessageVideo(client, filename, mime, url, filePath, fileHash);
+            break;
+        }
         case enums.MESSAGE_VIDEO: {
             const filename = reader.string();
             const mime = reader.string();
             const data = reader.u8array();
-            const maxBytes = 512 * 1024 * 1024; // 512MB
-            if (data.length > maxBytes) {
+            if (data.length > config.maxFileBytes) {
                 console.warn(`Rejected video from user ${user.id}: ${filename} (${data.length} bytes) exceeds limit`);
                 break;
             }
@@ -167,12 +248,19 @@ async function handleChatMessage(client: ExtWebSocket, reader: BinaryReader) {
             user.channel.clientMessageVideo(client, filename, mime, upload.url, upload.filePath, upload.fileHash);
             break;
         }
+        case enums.MESSAGE_AUDIO_URL: {
+            const filename = reader.string();
+            const mime = reader.string();
+            const url = reader.string();
+            const { filePath, fileHash } = getUploadMetadataFromUrl(url);
+            user.channel.clientMessageAudio(client, filename, mime, url, filePath, fileHash);
+            break;
+        }
         case enums.MESSAGE_AUDIO: {
             const filename = reader.string();
             const mime = reader.string();
             const data = reader.u8array();
-            const maxBytes = 512 * 1024 * 1024; // 512MB
-            if (data.length > maxBytes) {
+            if (data.length > config.maxFileBytes) {
                 console.warn(`Rejected audio from user ${user.id}: ${filename} (${data.length} bytes) exceeds limit`);
                 break;
             }
